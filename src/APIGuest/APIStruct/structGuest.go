@@ -2,27 +2,29 @@ package APIStruct
 
 import "time"
 
+// Address representa la dirección de un huésped
 type Address struct {
-	Street     string `json:"street,omitempty"`
-	City       string `json:"city,omitempty"`
-	State      string `json:"state,omitempty"`
-	Country    string `json:"country,omitempty"`
-	PostalCode string `json:"postalCode,omitempty"`
+	Street     string `json:"street,omitempty"`     // Calle
+	City       string `json:"city,omitempty"`       // Ciudad
+	State      string `json:"state,omitempty"`      // Estado
+	Country    string `json:"country,omitempty"`    // País
+	PostalCode string `json:"postalCode,omitempty"` // Código postal
 }
 
-// Guest struct para el huésped
+// Guest representa la información de un huésped
 type Guest struct {
-	ID             string            `json:"id"`                                 // ID único (puede ser generado por una base de datos)
-	FirstName      string            `json:"firstName" binding:"required"`       // Requerido
-	LastName       string            `json:"lastName" binding:"required"`        // Requerido
-	Email          string            `json:"email" binding:"required,email"`     // Requerido y validación de formato
-	Phone          string            `json:"phone,omitempty"`                    // Opcional
-	Nationality    string            `json:"nationality,omitempty"`              // Opcional
-	DocumentType   string            `json:"documentType,omitempty"`             // Opcional, enum en validación
-	DocumentNumber string            `json:"documentNumber,omitempty"`           // Opcional
-	Address        Address           `json:"address,omitempty"`                  // Estructura anidada
-	Blacklisted    bool              `json:"blacklisted"`                        // Booleano con valor predeterminado
-	BlacklistReason string           `json:"blacklistReason,omitempty"`          // Opcional
-	CreatedAt      time.Time         `json:"createdAt"`                          // Marca de tiempo
-	UpdatedAt      time.Time         `json:"updatedAt"`                          // Marca de tiempo
+	ID             string    `json:"id"`                                  // ID único del huésped (será generado por la base de datos)
+	FirstName      string    `json:"firstName" binding:"required"`        // Primer nombre (requerido)
+	LastName       string    `json:"lastName" binding:"required"`         // Apellido (requerido)
+	Email          string    `json:"email" binding:"required,email"`      // Correo electrónico (requerido y validación de formato)
+	Phone          string    `json:"phone,omitempty"`                     // Teléfono (opcional)
+	Nationality    string    `json:"nationality,omitempty"`               // Nacionalidad (opcional)
+	DocumentType   string    `json:"documentType,omitempty"`              // Tipo de documento (opcional)
+	DocumentNumber string    `json:"documentNumber,omitempty"`            // Número de documento (opcional)
+	Address        Address   `json:"address,omitempty"`                   // Dirección (estructura anidada, opcional)
+	Blacklisted    bool      `json:"blacklisted"`                         // Si está en lista negra (requerido)
+	BlacklistReason string   `json:"blacklistReason,omitempty"`           // Motivo de la lista negra (opcional)
+	CreatedAt      time.Time `json:"createdAt"`                           // Fecha de creación
+	UpdatedAt      time.Time `json:"updatedAt"`                           // Fecha de última actualización
 }
+

@@ -60,13 +60,14 @@ func GetGuests(c *gin.Context) {
 func GetGuestByID(c *gin.Context) {
 	id := c.Param("id")
 	log.Info().Str("id", id).Msg("Fetching guest by ID")
-	for _, guest := range Guests {
-		if guest.ID == id {
-			c.JSON(http.StatusOK, FormatResponse("success", "Guest found", guest))
-			return
-		}
+
+	// Mejorar la búsqueda utilizando un índice
+	guest, found := findGuestByID(id)
+	if found {
+		c.JSON(http.StatusOK, FormatResponse("success", "Guest found", guest))
+	} else {
+		c.JSON(http.StatusNotFound, FormatResponse("error", "Guest not found", nil))
 	}
-	c.JSON(http.StatusNotFound, FormatResponse("error", "Guest not found", nil))
 }
 
 // Manejo de peticiones POST para crear un nuevo huésped
@@ -93,49 +94,79 @@ func UpdateGuest(c *gin.Context) {
 		return
 	}
 
-	for i, guest := range Guests {
-		if guest.ID == id {
-			// Actualiza campos selectivos
-			if updatedData.FirstName != "" {
-				guest.FirstName = updatedData.FirstName
+	guest, found := findGuestByID(id)
+	if found {
+		// Actualiza campos selectivos
+		guest = updateGuestFields(guest, updatedData)
+
+		// Reemplazar el huésped actualizado en la lista
+		for i, g := range Guests {
+			if g.ID == id {
+				Guests[i] = guest
+				break
 			}
-			if updatedData.LastName != "" {
-				guest.LastName = updatedData.LastName
-			}
-			if updatedData.Email != "" {
-				guest.Email = updatedData.Email
-			}
-			if updatedData.Address != (APIStruct.Address{}) {
-				guest.Address = updatedData.Address
-			}
-			guest.Blacklisted = updatedData.Blacklisted
-			guest.BlacklistReason = updatedData.BlacklistReason
-			Guests[i] = guest
-			log.Info().Str("id", id).Msg("Guest updated successfully")
-			c.JSON(http.StatusOK, FormatResponse("success", "Guest updated successfully", guest))
-			return
 		}
+
+		log.Info().Str("id", id).Msg("Guest updated successfully")
+		c.JSON(http.StatusOK, FormatResponse("success", "Guest updated successfully", guest))
+	} else {
+		c.JSON(http.StatusNotFound, FormatResponse("error", "Guest not found", nil))
 	}
-	c.JSON(http.StatusNotFound, FormatResponse("error", "Guest not found", nil))
 }
 
 // Manejo de peticiones DELETE para eliminar un huésped
 func DeleteGuest(c *gin.Context) {
 	id := c.Param("id")
 	log.Info().Str("id", id).Msg("Attempting to delete guest")
-	for i, guest := range Guests {
-		if guest.ID == id {
-			Guests = append(Guests[:i], Guests[i+1:]...)
-			log.Info().Str("id", id).Msg("Guest deleted successfully")
-			c.Status(http.StatusNoContent)
-			return
+
+	// Buscar el huésped solo para verificar si existe
+	_, found := findGuestByID(id)
+	if found {
+		// Eliminar el huésped de la lista
+		for i, g := range Guests {
+			if g.ID == id {
+				Guests = append(Guests[:i], Guests[i+1:]...)
+				break
+			}
 		}
+		log.Info().Str("id", id).Msg("Guest deleted successfully")
+		c.Status(http.StatusNoContent)
+	} else {
+		c.JSON(http.StatusNotFound, FormatResponse("error", "Guest not found", nil))
 	}
-	c.JSON(http.StatusNotFound, FormatResponse("error", "Guest not found", nil))
 }
 
 // Función para generar un ID único para cada huésped
 func GenerateID() string {
 	// Simula la generación de un ID único
 	return "some-unique-id"
+}
+
+// Función para encontrar un huésped por ID
+func findGuestByID(id string) (APIStruct.Guest, bool) {
+	for _, guest := range Guests {
+		if guest.ID == id {
+			return guest, true
+		}
+	}
+	return APIStruct.Guest{}, false
+}
+
+// Función para actualizar campos del huésped
+func updateGuestFields(guest, updatedData APIStruct.Guest) APIStruct.Guest {
+	if updatedData.FirstName != "" {
+		guest.FirstName = updatedData.FirstName
+	}
+	if updatedData.LastName != "" {
+		guest.LastName = updatedData.LastName
+	}
+	if updatedData.Email != "" {
+		guest.Email = updatedData.Email
+	}
+	if updatedData.Address != (APIStruct.Address{}) {
+		guest.Address = updatedData.Address
+	}
+	guest.Blacklisted = updatedData.Blacklisted
+	guest.BlacklistReason = updatedData.BlacklistReason
+	return guest
 }
