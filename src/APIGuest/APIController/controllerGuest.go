@@ -6,8 +6,13 @@ import (
 	"github.com/rs/zerolog/log"
 	"net/http"
 	"github.com/CamiloScript/REGAPIGO/bd/MongoDB"
+	"go.mongodb.org/mongo-driver/bson"
+	"go.mongodb.org/mongo-driver/mongo"
+	"go.mongodb.org/mongo-driver/mongo/options"
 	"time"
 )
+
+var ConectaMongoDB = MongoDB.ConexionDB // Variable para conectar a la base de datos
 
 // Estructura para respuestas estandarizadas
 type ApiResponse struct {
@@ -15,29 +20,6 @@ type ApiResponse struct {
 	Data    interface{} `json:"data"`
 	Message string      `json:"message"`
 	Status  string      `json:"status"`
-}
-
-// Version de la API
-var Version = "1.0"
-
-// Conexion a la base de datos MongoDB
-var ConectaMongoDB = MongoDB.ConexionDB // variable para conectar realizar la conexion a la base de datos
-
-// Lista de huéspedes (simulada por ahora)
-var Guests = []APIStruct.Guest{} // slice de invitados
-
-// Middleware para el manejo de logs
-func LoggerMiddleware() gin.HandlerFunc {
-	return func(c *gin.Context) {
-		start := time.Now()
-		c.Next()
-
-		log.Info().Str("method", c.Request.Method).
-			Str("path", c.Request.URL.Path).
-			Int("status", c.Writer.Status()).
-			Dur("duration", time.Since(start)).
-			Msg("Request processed")
-	}
 }
 
 // Función para formatear respuestas
@@ -53,7 +35,25 @@ func FormatResponse(status string, message string, data interface{}) ApiResponse
 // Manejo de peticiones GET para todos los huéspedes
 func GetGuests(c *gin.Context) {
 	log.Info().Msg("Fetching all guests")
-	c.JSON(http.StatusOK, FormatResponse("success", "Guests retrieved successfully", Guests))
+
+	// Consultar todos los huéspedes en la base de datos
+	collection := ConectaMongoDB.Database("your_db").Collection("guests")
+	cursor, err := collection.Find(c, bson.M{})
+	if err != nil {
+		log.Error().Err(err).Msg("Error fetching guests")
+		c.JSON(http.StatusInternalServerError, FormatResponse("error", "Error fetching guests", nil))
+		return
+	}
+	defer cursor.Close(c)
+
+	var guests []APIStruct.Guest
+	if err = cursor.All(c, &guests); err != nil {
+		log.Error().Err(err).Msg("Error parsing guests data")
+		c.JSON(http.StatusInternalServerError, FormatResponse("error", "Error parsing guests data", nil))
+		return
+	}
+
+	c.JSON(http.StatusOK, FormatResponse("success", "Guests retrieved successfully", guests))
 }
 
 // Manejo de peticiones GET por ID de huésped
@@ -61,13 +61,21 @@ func GetGuestByID(c *gin.Context) {
 	id := c.Param("id")
 	log.Info().Str("id", id).Msg("Fetching guest by ID")
 
-	// Mejorar la búsqueda utilizando un índice
-	guest, found := findGuestByID(id)
-	if found {
-		c.JSON(http.StatusOK, FormatResponse("success", "Guest found", guest))
-	} else {
-		c.JSON(http.StatusNotFound, FormatResponse("error", "Guest not found", nil))
+	// Buscar el huésped por ID en la base de datos
+	collection := ConectaMongoDB.Database("your_db").Collection("guests")
+	var guest APIStruct.Guest
+	err := collection.FindOne(c, bson.M{"id": id}).Decode(&guest)
+	if err != nil {
+		if err == mongo.ErrNoDocuments {
+			c.JSON(http.StatusNotFound, FormatResponse("error", "Guest not found", nil))
+		} else {
+			log.Error().Err(err).Msg("Error fetching guest")
+			c.JSON(http.StatusInternalServerError, FormatResponse("error", "Error fetching guest", nil))
+		}
+		return
 	}
+
+	c.JSON(http.StatusOK, FormatResponse("success", "Guest found", guest))
 }
 
 // Manejo de peticiones POST para crear un nuevo huésped
@@ -78,8 +86,18 @@ func CreateGuest(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, FormatResponse("error", "Invalid request body", nil))
 		return
 	}
-	newGuest.ID = GenerateID() // Simula la generación de un ID único
-	Guests = append(Guests, newGuest)
+
+	// Conectar a la base de datos para insertar un nuevo huésped
+	collection := ConectaMongoDB.Database("your_db").Collection("guests")
+	newGuest.ID = GenerateID() // Generar un ID único para el nuevo huésped
+
+	_, err := collection.InsertOne(c, newGuest)
+	if err != nil {
+		log.Error().Err(err).Msg("Error creating guest")
+		c.JSON(http.StatusInternalServerError, FormatResponse("error", "Error creating guest", nil))
+		return
+	}
+
 	log.Info().Str("id", newGuest.ID).Msg("Guest created successfully")
 	c.JSON(http.StatusCreated, FormatResponse("success", "Guest created successfully", newGuest))
 }
@@ -94,24 +112,19 @@ func UpdateGuest(c *gin.Context) {
 		return
 	}
 
-	guest, found := findGuestByID(id)
-	if found {
-		// Actualiza campos selectivos
-		guest = updateGuestFields(guest, updatedData)
-
-		// Reemplazar el huésped actualizado en la lista
-		for i, g := range Guests {
-			if g.ID == id {
-				Guests[i] = guest
-				break
-			}
-		}
-
-		log.Info().Str("id", id).Msg("Guest updated successfully")
-		c.JSON(http.StatusOK, FormatResponse("success", "Guest updated successfully", guest))
-	} else {
-		c.JSON(http.StatusNotFound, FormatResponse("error", "Guest not found", nil))
+	// Conectar a la base de datos y actualizar el huésped por ID
+	collection := ConectaMongoDB.Database("your_db").Collection("guests")
+	_, err := collection.UpdateOne(c, bson.M{"id": id}, bson.M{
+		"$set": updatedData,
+	})
+	if err != nil {
+		log.Error().Err(err).Msg("Error updating guest")
+		c.JSON(http.StatusInternalServerError, FormatResponse("error", "Error updating guest", nil))
+		return
 	}
+
+	log.Info().Str("id", id).Msg("Guest updated successfully")
+	c.JSON(http.StatusOK, FormatResponse("success", "Guest updated successfully", updatedData))
 }
 
 // Manejo de peticiones DELETE para eliminar un huésped
@@ -119,54 +132,21 @@ func DeleteGuest(c *gin.Context) {
 	id := c.Param("id")
 	log.Info().Str("id", id).Msg("Attempting to delete guest")
 
-	// Buscar el huésped solo para verificar si existe
-	_, found := findGuestByID(id)
-	if found {
-		// Eliminar el huésped de la lista
-		for i, g := range Guests {
-			if g.ID == id {
-				Guests = append(Guests[:i], Guests[i+1:]...)
-				break
-			}
-		}
-		log.Info().Str("id", id).Msg("Guest deleted successfully")
-		c.Status(http.StatusNoContent)
-	} else {
-		c.JSON(http.StatusNotFound, FormatResponse("error", "Guest not found", nil))
+	// Buscar y eliminar el huésped de la base de datos
+	collection := ConectaMongoDB.Database("your_db").Collection("guests")
+	_, err := collection.DeleteOne(c, bson.M{"id": id})
+	if err != nil {
+		log.Error().Err(err).Msg("Error deleting guest")
+		c.JSON(http.StatusInternalServerError, FormatResponse("error", "Error deleting guest", nil))
+		return
 	}
+
+	log.Info().Str("id", id).Msg("Guest deleted successfully")
+	c.Status(http.StatusNoContent)
 }
 
 // Función para generar un ID único para cada huésped
 func GenerateID() string {
 	// Simula la generación de un ID único
 	return "some-unique-id"
-}
-
-// Función para encontrar un huésped por ID
-func findGuestByID(id string) (APIStruct.Guest, bool) {
-	for _, guest := range Guests {
-		if guest.ID == id {
-			return guest, true
-		}
-	}
-	return APIStruct.Guest{}, false
-}
-
-// Función para actualizar campos del huésped
-func updateGuestFields(guest, updatedData APIStruct.Guest) APIStruct.Guest {
-	if updatedData.FirstName != "" {
-		guest.FirstName = updatedData.FirstName
-	}
-	if updatedData.LastName != "" {
-		guest.LastName = updatedData.LastName
-	}
-	if updatedData.Email != "" {
-		guest.Email = updatedData.Email
-	}
-	if updatedData.Address != (APIStruct.Address{}) {
-		guest.Address = updatedData.Address
-	}
-	guest.Blacklisted = updatedData.Blacklisted
-	guest.BlacklistReason = updatedData.BlacklistReason
-	return guest
 }

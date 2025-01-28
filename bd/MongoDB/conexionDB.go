@@ -18,7 +18,7 @@ func ConexionDB() (*mongo.Client, error) {
 	// Cargar variables del archivo .env
 	err := godotenv.Load()
 	if err != nil {
-		log.Error().Err(err).Msg("error al cargar el archivo .env")
+		log.Error().Err(err).Msg("Error al cargar el archivo .env")
 		return nil, fmt.Errorf("error al cargar el archivo .env: %v", err)
 	}
 
@@ -40,19 +40,19 @@ func ConexionDB() (*mongo.Client, error) {
 	// Crear cliente y conectarse a la base de datos
 	client, err := mongo.Connect(ctx, opts)
 	if err != nil {
-		log.Error().Err(err).Msg("error al conectar con la base de datos MongoDB")
+		log.Error().Err(err).Msg("Error al conectar con la base de datos MongoDB")
 		return nil, fmt.Errorf("error al conectar con MongoDB: %v", err)
 	}
 
 	// Verificar conexión mediante un ping
 	err = client.Database("admin").RunCommand(ctx, bson.D{{"ping", 1}}).Err()
 	if err != nil {
-		log.Error().Err(err).Msg("error al hacer ping a MongoDB")
+		log.Error().Err(err).Msg("Error al hacer ping a MongoDB")
 		return nil, fmt.Errorf("error al hacer ping a MongoDB: %v", err)
 	}
 
 	// Registro de conexión exitosa
-	log.Info().Msg("conexión exitosa a la base de datos MongoDB")
+	log.Info().Msg("Conexión exitosa a la base de datos MongoDB")
 
 	return client, nil
 }
@@ -66,9 +66,8 @@ func CerrarConexion(client *mongo.Client) {
 	// Intentar desconectar el cliente
 	err := client.Disconnect(ctx)
 	if err != nil {
-		log.Error().Err(err).Msg("error al desconectar de MongoDB")
+		log.Error().Err(err).Msg("Error al desconectar de MongoDB")
 	} else {
-		log.Info().Msg("desconexión exitosa de MongoDB")
+		log.Info().Msg("Desconexión exitosa de MongoDB")
 	}
 }
-
