@@ -1,4 +1,4 @@
-module github.com/CamiloScript/REGAPIGO/tree/main/bd
+module github.com/CamiloScript/REGAPIGO/tree/main/bd/MongoDB
 
 go 1.23.5
 

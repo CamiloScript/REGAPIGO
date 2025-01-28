@@ -1,4 +1,4 @@
-package main
+package MongoDB
 
 import (
 	"context"
@@ -9,7 +9,7 @@ import (
   )
 
 
-  func main() {
+  func ConexionDB() {
 
 	// Use the SetServerAPIOptions() method to set the version of the Stable API on the client
 	serverAPI := options.ServerAPI(options.ServerAPIVersion1)
