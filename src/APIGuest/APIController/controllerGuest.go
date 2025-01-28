@@ -2,7 +2,7 @@ package APIController
 
 
 import (
-	"APIGuest/APIStruct"
+	"github.com/myuser/APIStruct"
 	"github.com/gin-gonic/gin"
 	"github.com/rs/zerolog/log"
 	"net/http"
