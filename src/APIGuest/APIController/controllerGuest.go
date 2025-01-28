@@ -2,11 +2,11 @@ package APIController
 
 
 import (
-	
+	"github.com/CamiloScript/REGAPIGO/tree/main/src/APIGuest/APIStruct"
 	"github.com/gin-gonic/gin"
 	"github.com/rs/zerolog/log"
 	"net/http"
-	"github.com/CamiloScript/REGAPIGO/tree/main/src/APIGuest/APIStruct"
+	
 
 )
 
