@@ -2,7 +2,7 @@ package APIController
 
 
 import (
-	
+	"github.com/CamiloScript/REGAPIGO/tree/main/bd"
 	"github.com/gin-gonic/gin"
 	"github.com/rs/zerolog/log"
 	"net/http"
