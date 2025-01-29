@@ -12,7 +12,7 @@ func main() {
 	router := gin.Default()
 
 	// Conexión a la base de datos
-	Cliente, err := MongoDB.ConexionDB()
+	_, err := MongoDB.ConexionDB()
 	if err != nil {
 		log.Fatal("Error al conectar a la base de datos: ", err)
 	}
@@ -29,4 +29,7 @@ func main() {
 	if err := router.Run(":8080"); err != nil {
 		log.Fatal("Error al iniciar el servidor: ", err)
 	}
+
+	// Parar el servidor
+	// Mongodb.CerrarConexion()
 }
