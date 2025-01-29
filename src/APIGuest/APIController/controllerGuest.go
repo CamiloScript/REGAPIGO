@@ -14,7 +14,7 @@ import (
 func GetGuests(c *gin.Context) {
 	
 	// Consultamos la base de datos
-	collection := MongoDB.Cliente.Database("guestsDB").Collection("guests")
+	collection := MongoDB.Cliente.Database("APIREGDB").Collection("Guests")
 	cursor, err := collection.Find(c, bson.M{})
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, FormatResponse("error", "Error al obtener los huéspedes", nil))
@@ -60,7 +60,7 @@ func CreateGuest(c *gin.Context) {
 	}
 
 	// Insertamos el nuevo huésped en la base de datos
-	collection := MongoDB.Cliente.Database("guestsDB").Collection("guests")
+	collection := MongoDB.Cliente.Database("APIREGDB").Collection("Guests")
 	_, err := collection.InsertOne(c, newGuest)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, FormatResponse("error", "Error al crear el huésped", nil))
@@ -80,7 +80,7 @@ func UpdateGuest(c *gin.Context) {
 	}
 
 	// Actualizamos el huésped en la base de datos
-	collection := MongoDB.Cliente.Database("guestsDB").Collection("guests")
+	collection := MongoDB.Cliente.Database("APIREGDB").Collection("Guests")
 	_, err := collection.UpdateOne(c, bson.M{"_id": id}, bson.M{"$set": updatedGuest})
 	if err == mongo.ErrNoDocuments {
 		c.JSON(http.StatusNotFound, FormatResponse("error", "Huésped no encontrado", nil))
@@ -98,7 +98,7 @@ func DeleteGuest(c *gin.Context) {
 	id := c.Param("id")
 
 	// Eliminamos el huésped de la base de datos
-	collection := MongoDB.Cliente.Database("guestsDB").Collection("guests")
+	collection := MongoDB.Cliente.Database("APIREGDB").Collection("Guests")
 	_, err := collection.DeleteOne(c, bson.M{"_id": id})
 	if err == mongo.ErrNoDocuments {
 		c.JSON(http.StatusNotFound, FormatResponse("error", "Huésped no encontrado", nil))
