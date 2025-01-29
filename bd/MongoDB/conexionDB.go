@@ -9,7 +9,7 @@ import (
 	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
-var client *mongo.Client
+var Client *mongo.Client
 
 // ConexionDB establece la conexión con la base de datos de MongoDB
 func ConexionDB() (*mongo.Client, error) {
@@ -39,7 +39,7 @@ func ConexionDB() (*mongo.Client, error) {
 
 // CerrarConexion cierra la conexión a la base de datos
 func CerrarConexion() {
-	if err := client.Disconnect(context.Background()); err != nil {
+	if err := Client.Disconnect(context.Background()); err != nil {
 		log.Fatal("Error al desconectar de MongoDB:", err)
 	}
 	log.Info().Msg("Conexión cerrada con éxito")
