@@ -3,7 +3,7 @@ package APIController
 import (
 	"net/http"
 
-	"github.com/CamiloScript/REGAPIGO/src/models"
+	"github.com/CamiloScript/REGAPIGO/src/APIGuest/APIStruct"
 	"github.com/CamiloScript/REGAPIGO/bd/MongoDB"
 	"github.com/gin-gonic/gin"
 	"go.mongodb.org/mongo-driver/bson"
@@ -21,7 +21,7 @@ func GetGuests(c *gin.Context) {
 	}
 	defer cursor.Close(c)
 
-	var guests []models.Guest
+	var guests []APIStruct.Guest
 	if err := cursor.All(c, &guests); err != nil {
 		c.JSON(http.StatusInternalServerError, FormatResponse("error", "Error al procesar los huéspedes", nil))
 		return
@@ -36,7 +36,7 @@ func GetGuestByID(c *gin.Context) {
 
 	// Consultamos la base de datos
 	collection := MongoDB.Client.Database("guestsDB").Collection("guests")
-	var guest models.Guest
+	var guest APIStruct.Guest
 	err := collection.FindOne(c, bson.M{"_id": id}).Decode(&guest)
 
 	if err == mongo.ErrNoDocuments {
@@ -52,7 +52,7 @@ func GetGuestByID(c *gin.Context) {
 
 // CreateGuest maneja la solicitud POST para crear un nuevo huésped
 func CreateGuest(c *gin.Context) {
-	var newGuest models.Guest
+	var newGuest APIStruct.Guest
 	if err := c.ShouldBindJSON(&newGuest); err != nil {
 		c.JSON(http.StatusBadRequest, FormatResponse("error", "Datos inválidos", nil))
 		return
@@ -72,7 +72,7 @@ func CreateGuest(c *gin.Context) {
 // UpdateGuest maneja la solicitud PUT para actualizar los datos de un huésped
 func UpdateGuest(c *gin.Context) {
 	id := c.Param("id")
-	var updatedGuest models.Guest
+	var updatedGuest APIStruct.Guest
 	if err := c.ShouldBindJSON(&updatedGuest); err != nil {
 		c.JSON(http.StatusBadRequest, FormatResponse("error", "Datos inválidos", nil))
 		return
