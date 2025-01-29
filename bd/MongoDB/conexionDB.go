@@ -36,7 +36,7 @@ func ConexionDB() (*mongo.Client, error) {
 	defer cancel()
 
 	// Intentamos conectar al servidor de MongoDB usando la URI cargada desde el archivo .env
-	Cliente, err := mongo.Connect(ctx, options.Client().ApplyURI(uri))
+	Cliente, err = mongo.Connect(ctx, options.Client().ApplyURI(uri))
 	if err != nil {
 		log.Println("Error al conectar con MongoDB:", err)
 		return nil, fmt.Errorf("error al conectar con MongoDB: %v", err)
@@ -54,8 +54,11 @@ func ConexionDB() (*mongo.Client, error) {
 
 // CerrarConexion cierra la conexión a la base de datos
 func CerrarConexion() {
+	if Cliente != nil {
 	if err := Cliente.Disconnect(context.Background()); err != nil {
 		log.Fatal("Error al desconectar de MongoDB:", err)
 	}
 	log.Println("Conexión cerrada con éxito")
 }
+}
+
