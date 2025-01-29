@@ -71,3 +71,8 @@ func CerrarConexion(client *mongo.Client) {
 		log.Info().Msg("Desconexión exitosa de MongoDB")
 	}
 }
+
+// ObtenerBaseDatos devuelve una base de datos específica
+func ObtenerBaseDatos(client *mongo.Client, nombreBD string) *mongo.Database {
+    return client.Database(nombreBD)
+}
