@@ -16,7 +16,7 @@ import (
 // ConexionDB establece la conexión con MongoDB utilizando URI desde el archivo .env.
 func ConexionDB() (*mongo.Client, error) {
 	// Cargar variables del archivo .env
-	err := godotenv.Load()
+	err := godotenv.Load("/")
 	if err != nil {
 		log.Error().Err(err).Msg("Error al cargar el archivo .env")
 		return nil, fmt.Errorf("error al cargar el archivo .env: %v", err)
@@ -28,6 +28,7 @@ func ConexionDB() (*mongo.Client, error) {
 		log.Error().Msg("URI de MongoDB no encontrada en las variables de entorno")
 		return nil, fmt.Errorf("URI de MongoDB no encontrada en las variables de entorno")
 	}
+	log.Debug().Msg("Conectando a MongoDB con URI: " + uri)  // Esto te permitirá ver la URI en los logs
 
 	// Opciones de conexión
 	serverAPI := options.ServerAPI(options.ServerAPIVersion1)
