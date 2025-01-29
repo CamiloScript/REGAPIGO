@@ -12,13 +12,11 @@ func main() {
 	router := gin.Default()
 
 	// Conexión a la base de datos
-	err, dbErr := MongoDB.ConexionDB()
+	client, err := MongoDB.ConexionDB()
 	if err != nil {
 		log.Fatal("Error al conectar a la base de datos: ", err)
 	}
-	if dbErr != nil {
-		log.Fatal("Database error: ", dbErr)
-	}
+	defer MongoDB.CerrarConexion() // Cerramos la conexión cuando termine el programa
 
 	// Definimos las rutas para las peticiones HTTP
 	router.GET("/guests", APIController.GetGuests)
@@ -28,7 +26,7 @@ func main() {
 	router.DELETE("/guests/:id", APIController.DeleteGuest)
 
 	// Iniciamos el servidor
-	if runErr := router.Run(":8080"); runErr != nil {
-		log.Fatal("Error al iniciar el servidor: ", runErr)
+	if err := router.Run(":8080"); err != nil {
+		log.Fatal("Error al iniciar el servidor: ", err)
 	}
 }
