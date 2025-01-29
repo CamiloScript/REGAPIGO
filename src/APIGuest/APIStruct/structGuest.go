@@ -27,4 +27,3 @@ type Guest struct {
 	CreatedAt      time.Time `json:"createdAt"`                           // Fecha de creación
 	UpdatedAt      time.Time `json:"updatedAt"`                           // Fecha de última actualización
 }
-
