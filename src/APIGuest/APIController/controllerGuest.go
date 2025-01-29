@@ -12,8 +12,9 @@ import (
 
 // GetGuests maneja la solicitud GET para obtener todos los huéspedes
 func GetGuests(c *gin.Context) {
+	
 	// Consultamos la base de datos
-	collection := MongoDB.Client.Database("guestsDB").Collection("guests")
+	collection := MongoDB.Cliente.Database("guestsDB").Collection("guests")
 	cursor, err := collection.Find(c, bson.M{})
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, FormatResponse("error", "Error al obtener los huéspedes", nil))
@@ -35,7 +36,7 @@ func GetGuestByID(c *gin.Context) {
 	id := c.Param("id")
 
 	// Consultamos la base de datos
-	collection := MongoDB.Client.Database("guestsDB").Collection("guests")
+	collection := MongoDB.Cliente.Database("guestsDB").Collection("guests")
 	var guest APIStruct.Guest
 	err := collection.FindOne(c, bson.M{"_id": id}).Decode(&guest)
 
@@ -59,7 +60,7 @@ func CreateGuest(c *gin.Context) {
 	}
 
 	// Insertamos el nuevo huésped en la base de datos
-	collection := MongoDB.Client.Database("guestsDB").Collection("guests")
+	collection := MongoDB.Cliente.Database("guestsDB").Collection("guests")
 	_, err := collection.InsertOne(c, newGuest)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, FormatResponse("error", "Error al crear el huésped", nil))
@@ -79,7 +80,7 @@ func UpdateGuest(c *gin.Context) {
 	}
 
 	// Actualizamos el huésped en la base de datos
-	collection := MongoDB.Client.Database("guestsDB").Collection("guests")
+	collection := MongoDB.Cliente.Database("guestsDB").Collection("guests")
 	_, err := collection.UpdateOne(c, bson.M{"_id": id}, bson.M{"$set": updatedGuest})
 	if err == mongo.ErrNoDocuments {
 		c.JSON(http.StatusNotFound, FormatResponse("error", "Huésped no encontrado", nil))
@@ -97,7 +98,7 @@ func DeleteGuest(c *gin.Context) {
 	id := c.Param("id")
 
 	// Eliminamos el huésped de la base de datos
-	collection := MongoDB.Client.Database("guestsDB").Collection("guests")
+	collection := MongoDB.Cliente.Database("guestsDB").Collection("guests")
 	_, err := collection.DeleteOne(c, bson.M{"_id": id})
 	if err == mongo.ErrNoDocuments {
 		c.JSON(http.StatusNotFound, FormatResponse("error", "Huésped no encontrado", nil))

@@ -12,7 +12,7 @@ func main() {
 	router := gin.Default()
 
 	// Conexión a la base de datos
-	client, err := MongoDB.ConexionDB()
+	Cliente, err := MongoDB.ConexionDB()
 	if err != nil {
 		log.Fatal("Error al conectar a la base de datos: ", err)
 	}

@@ -9,7 +9,7 @@ import (
 	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
-var Client *mongo.Client
+var Cliente *mongo.Client
 
 // ConexionDB establece la conexión con la base de datos de MongoDB
 func ConexionDB() (*mongo.Client, error) {
@@ -21,26 +21,26 @@ func ConexionDB() (*mongo.Client, error) {
 	uri := "mongodb://localhost:27017"
 
 	// Intentamos conectar al servidor de MongoDB
-	client, err := mongo.Connect(ctx, options.Client().ApplyURI(uri))
+	Cliente, err := mongo.Connect(ctx, options.Client().ApplyURI(uri))
 	if err != nil {
-		log.Error().Err(err).Msg("Error al conectar con MongoDB")
+		log.Println("Error al conectar con MongoDB:", err)
 		return nil, fmt.Errorf("error al conectar con MongoDB: %v", err)
 	}
 
 	// Verificamos la conexión
-	if err := client.Ping(ctx, nil); err != nil {
-		log.Error().Err(err).Msg("Error al hacer ping a MongoDB")
+	if err := Cliente.Ping(ctx, nil); err != nil {
+		log.Println("Error al hacer ping a MongoDB:", err)
 		return nil, fmt.Errorf("error al hacer ping a MongoDB: %v", err)
 	}
 
-	log.Info().Msg("Conexión exitosa a MongoDB")
-	return client, nil
+	log.Println("Conexión exitosa a MongoDB")
+	return Cliente, nil
 }
 
 // CerrarConexion cierra la conexión a la base de datos
 func CerrarConexion() {
-	if err := Client.Disconnect(context.Background()); err != nil {
+	if err := Cliente.Disconnect(context.Background()); err != nil {
 		log.Fatal("Error al desconectar de MongoDB:", err)
 	}
-	log.Info().Msg("Conexión cerrada con éxito")
+	log.Println("Conexión cerrada con éxito")
 }
