@@ -9,7 +9,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
-
+	"time"
 )
 
 // GetGuests maneja la solicitud GET para obtener todos los huéspedes
@@ -77,6 +77,10 @@ func CreateGuest(c *gin.Context) {
 		return
 	}
 
+	// Asignamos valores de tiempo
+	newGuest.CreatedAt = time.Now()
+	newGuest.UpdatedAt = time.Now()
+
 	// Insertamos el nuevo huésped en la base de datos
 	collection := MongoDB.Cliente.Database("APIREGDB").Collection("Guests")
 	_, err := collection.InsertOne(c, newGuest)
@@ -102,6 +106,12 @@ func UpdateGuest(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, FormatResponse("error", "Datos inválidos", nil))
 		return
 	}
+
+	
+	// Asignamos valores de tiempo
+	// Asignamos nueva fecha de actualización
+
+	updatedGuest.UpdatedAt = time.Now()
 
 	// Actualizamos el huésped en la base de datos
 	collection := MongoDB.Cliente.Database("APIREGDB").Collection("Guests")
