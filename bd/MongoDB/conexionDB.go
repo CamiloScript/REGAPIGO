@@ -61,7 +61,6 @@ func ConexionDB() (*mongo.Client, error) {
     }
 
     log.Info().
-        Str("uri", uri).
         Msg("Conexión exitosa a MongoDB")
     
     return Cliente, nil
