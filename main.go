@@ -8,7 +8,7 @@ import (
 )
 
 func main() {
-	
+
 	// Inicializamos el servidor de Gin
 	router := gin.Default()
 
@@ -21,10 +21,10 @@ func main() {
 
 	// Definimos las rutas para las peticiones HTTP
 	router.GET("/guests", APIController.GetGuests)
-	router.GET("/guests/:id", APIController.GetGuestByID)
+	router.GET("/guest/:id", APIController.GetGuestByID)
 	router.POST("/guests", APIController.CreateGuest)
-	router.PUT("/guests/:id", APIController.UpdateGuest)
-	router.DELETE("/guests/:id", APIController.DeleteGuest)
+	router.PUT("/guest/:id", APIController.UpdateGuest)
+	router.DELETE("/guest/:id", APIController.DeleteGuest)
 
 	// Iniciamos el servidor
 	if err := router.Run(":8080"); err != nil {
