@@ -94,7 +94,7 @@ func CreateGuest(c *gin.Context) {
     log.Info().
         Str("email", newGuest.Email).
         Str("nombre", newGuest.FirstName + " " + newGuest.LastName).
-        Msg("Paquete recibido para creación de huésped")
+        Msg("Payload recibido para creación de huésped")
 
     // 3. Asignación de metadatos temporales
     newGuest.CreatedAt = time.Now().UTC()
@@ -118,7 +118,16 @@ func CreateGuest(c *gin.Context) {
             Interface("huésped", newGuest).
             Str("collection", "Guests").
             Msg("Fallo en operación MongoDB InsertOne")
-            c.JSON(http.StatusInternalServerError, FormatResponse(
+
+        // Detección específica de errores de MongoDB
+        if mongoErr, ok := err.(mongo.WriteException); ok {
+            log.Warn().
+                Int("code", mongoErr.WriteConcernError.Code).
+                Interface("details", mongoErr.WriteErrors).
+                Msg("Error específico de MongoDB")
+        }
+
+        c.JSON(http.StatusInternalServerError, FormatResponse(
             "error", 
             "Error interno al procesar la solicitud",
             nil))
