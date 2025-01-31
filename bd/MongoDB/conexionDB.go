@@ -22,6 +22,7 @@ func ConexionDB() (*mongo.Client, error) {
 
     // Se cargan las variables de entorno, presentes en el archivo .env, para la conexion a mongoDB
     err := godotenv.Load()
+    // Se genera un error si no se puede cargar el archivo .env, y se registra con zerolog para su seguimiento.
     if err != nil {
         log.Fatal().
             Err(err).
@@ -29,8 +30,9 @@ func ConexionDB() (*mongo.Client, error) {
         return nil, fmt.Errorf("error al cargar el archivo .env: %v", err)
     }
 
-    // Leer variable de entorno
+    // Se lee la variable de entorno MONGO_URI, presente dentro del archivo .env
     uri := os.Getenv("MONGO_URI")
+    // Se genera un error si la variable de entorno MONGO_URI no está definida, y se registra con zerolog para su seguimiento.
     if uri == "" {
         log.Fatal().
             Str("variable", "MONGO_URI").
@@ -38,11 +40,11 @@ func ConexionDB() (*mongo.Client, error) {
         return nil, fmt.Errorf("la variable de entorno MONGO_URI no está definida")
     }
 
-    // Contexto con timeout
+    // Contexto con timeout de 10 segundos para la conexión a MongoDB, y se cancela al finalizar la función.
     ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
     defer cancel()
 
-    // Conectar a MongoDB
+    // Se genera la conexion a mongoDB, y se registra con zerolog para su seguimiento.
     Cliente, err = mongo.Connect(ctx, options.Client().ApplyURI(uri))
     if err != nil {
         log.Error().
@@ -52,26 +54,28 @@ func ConexionDB() (*mongo.Client, error) {
         return nil, fmt.Errorf("error al conectar con MongoDB: %v", err)
     }
 
-    // Verificar conexión
+    // Se verifica la conexion a mongoDB a traves de un ping, un ping es una solicitud de prueba para verificar la conexión con el servidor.
+    // Se registran los eventos con zerolog para su seguimiento.
     if err := Cliente.Ping(ctx, nil); err != nil {
         log.Error().
             Err(err).
             Msg("Error verificando conexión")
         return nil, fmt.Errorf("error al hacer ping a MongoDB: %v", err)
     }
-
+    // Se registra con zerolog la conexión exitosa a MongoDB.
     log.Info().
         Msg("Conexión exitosa a MongoDB")
     
     return Cliente, nil
 }
 
-// CerrarConexion cierra la conexión con MongoDB usando zerolog
+// Se cierra la conexion a mongo db cuando se llame a la funcion CerrarConexion(), la cual se encarga de cerrar la conexion con mongoDB.
 func CerrarConexion() {
+    // Se verifica si la conexión a MongoDB es diferente de nil, para cerrar la conexión.
     if Cliente != nil {
         ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
         defer cancel()
-
+        // Se cierra la conexión a MongoDB, y se registra con zerolog para su seguimiento.
         if err := Cliente.Disconnect(ctx); err != nil {
             log.Error().
                 Err(err).

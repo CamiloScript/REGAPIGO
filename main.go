@@ -11,19 +11,21 @@ import (
 )
 
 func main() {
-    // Configurar zerolog con formato legible
+    // Se configura zerolog en un formato de tiempo específico (RFC3339) y se establece la salida a la consola.
     zerolog.TimeFieldFormat = time.RFC3339
+    // Se establece el logger de zerolog para que escriba en la salida estándar.
     log.Logger = log.Output(zerolog.ConsoleWriter{Out: os.Stderr})
 
-    // Inicializamos el servidor de Gin (manteniendo tu variable 'router')
+    // Se inicializa el servidor de Gin, ingresandolo a la variable router.
     router := gin.New()
     
-    // Middlewares (conservando Recovery y agregando nuestro logger)
-    router.Use(ginLogger())  // Logger personalizado
-    router.Use(gin.Recovery())  // Mantenemos el Recovery de Gin
+    // Middlewares (conservando Recovery y agregando nuestro logger) 
+    router.Use(ginLogger())  // Logger personalizado con zerolog
+    router.Use(gin.Recovery())  // Mantenemos el Recovery de Gin para manejo de errores en tiempo de ejecución.
 
-    // Conexión a la base de datos (mismo código con logging mejorado)
+    // Conexión a la base de datos 
     _, err := MongoDB.ConexionDB()
+    // Si hay un error al conectar a la base de datos, se registra en el log y se finaliza la ejecución.
     if err != nil {
         log.Fatal().
             Err(err).
@@ -31,14 +33,14 @@ func main() {
     }
     defer MongoDB.CerrarConexion()
 
-    // Definimos las rutas (sin cambios)
+    // Definimos las rutas de la API para controlar las solicitudes HTTP.
     router.GET("/guests", APIController.GetGuests)
     router.GET("/guest/:id", APIController.GetGuestByID)
     router.POST("/guests", APIController.CreateGuest)
     router.PUT("/guest/:id", APIController.UpdateGuest)
     router.DELETE("/guest/:id", APIController.DeleteGuest)
 
-    // Iniciamos el servidor (logging mejorado)
+    // Iniciamos el servidor en el puerto 8080 y se registra en el log.
     log.Info().Msg("Iniciando servidor en puerto :8080")
     if err := router.Run(":8080"); err != nil {
         log.Fatal().
@@ -47,12 +49,15 @@ func main() {
     }
 }
 
-// ginLogger es un middleware personalizado con zerolog
+// Se genera la función ginLogger(), la que retorna un middleware para registrar las solicitudes HTTP con zerolog.
 func ginLogger() gin.HandlerFunc {
     return func(c *gin.Context) {
+        // Se registra el tiempo de inicio de la solicitud.
         start := time.Now()
+        // Se ejecuta el siguiente middleware.
         c.Next()
-        
+        // Se registra en el log la solicitud HTTP, con información como el método, la ruta, el estado, la IP y la duración.
+        // Se busca que el log de la solicitud http, sea personalizado y con la información necesaria para su seguimiento.
         log.Info().
             Str("método", c.Request.Method).
             Str("ruta", c.Request.URL.Path).
