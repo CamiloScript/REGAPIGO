@@ -15,12 +15,12 @@ import (
 
 var Cliente *mongo.Client
 
-// ConexionDB establece la conexión con MongoDB usando zerolog
+// La función ConexionDB() establece la conexión con MongoDB usando zerolog para registrar los eventos.
 func ConexionDB() (*mongo.Client, error) {
-    // Configurar zerolog (formato legible para humanos)
+    // Se configura zerolog (formato predeterminado)
     log.Logger = log.Output(zerolog.ConsoleWriter{Out: os.Stderr})
 
-    // Cargar variables de entorno
+    // Se cargan las variables de entorno, presentes en el archivo .env, para la conexion a mongoDB
     err := godotenv.Load()
     if err != nil {
         log.Fatal().

@@ -14,27 +14,7 @@ import (
     "go.mongodb.org/mongo-driver/mongo"
 )
 
-// GetGuests maneja la solicitud GET para obtener todos los huéspedes
-func GetGuests(c *gin.Context) {
-    collection := MongoDB.Cliente.Database("APIREGDB").Collection("Guests")
-    cursor, err := collection.Find(c, bson.M{})
-    if err != nil {
-        log.Error().Err(err).Msg("Error al obtener huéspedes desde MongoDB")
-        c.JSON(http.StatusInternalServerError, FormatResponse("error", "Error al obtener los huéspedes", nil))
-        return
-    }
-    defer cursor.Close(c)
 
-    var guests []APIStruct.Guest
-    if err := cursor.All(c, &guests); err != nil {
-        log.Error().Err(err).Msg("Error al decodificar resultados de MongoDB")
-        c.JSON(http.StatusInternalServerError, FormatResponse("error", "Error al procesar los huéspedes", nil))
-        return
-    }
-
-    log.Info().Int("total_huéspedes", len(guests)).Msg("Huéspedes obtenidos exitosamente")
-    c.JSON(http.StatusOK, FormatResponse("success", "Lista de huéspedes obtenida correctamente", guests))
-}
 
 // GetGuestByID maneja la solicitud GET para obtener un huésped por su ID
 func GetGuestByID(c *gin.Context) {
@@ -74,7 +54,7 @@ func CreateGuest(c *gin.Context) {
         Str("method", c.Request.Method).
         Msg("Iniciando creación de huésped")
 
-    // 1. Validación del payload
+    // 1. Validación del Package Guest (Estructura de datos)
     var newGuest APIStruct.Guest
     if err := c.ShouldBindJSON(&newGuest); err != nil {
         log.Error().
@@ -90,7 +70,7 @@ func CreateGuest(c *gin.Context) {
         return
     }
 
-    // 2. Log del payload recibido (sin datos sensibles)
+    // 2. Log del Package recibido (sin datos sensibles)
     log.Info().
         Str("email", newGuest.Email).
         Str("nombre", newGuest.FirstName + " " + newGuest.LastName).
