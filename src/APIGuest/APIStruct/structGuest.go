@@ -15,7 +15,8 @@ type Address struct {
 	PostalCode string `json:"postalCode,omitempty"` // Código postal
 }
 
-// Guest representa la información de un huésped
+// Guest representa la información de un huésped, cuya estructura informa ademas el tipo de datos que se espera.
+// Se pueden configurar los datos obligatorios y opcionales, así como la estructura anidada de Address.
 type Guest struct {
 	ID 			   primitive.ObjectID	 `json:"id" bson:"_id,omitempty"`			  // ID del huesped generado por la base de datos al guardarlo
 	FirstName      string    			 `json:"firstName" binding:"required"`        // Primer nombre (requerido)
@@ -26,16 +27,9 @@ type Guest struct {
 	DocumentType   string   	 	     `json:"documentType,omitempty"`              // Tipo de documento (opcional)
 	DocumentNumber string    			 `json:"documentNumber,omitempty"`            // Número de documento (opcional)
 	Address        Address  			 `json:"address,omitempty"`                   // Dirección (estructura anidada, opcional)
-	Blacklisted    bool      			 `json:"blacklisted"`                         // Si está en lista negra (requerido)
-	BlacklistReason string  			 `json:"blacklistReason,omitempty"`           // Motivo de la lista negra (opcional)
+	Blacklisted    bool      			 `json:"blacklisted"`                         // Si está en lista negra o enlistado (requerido)
+	BlacklistReason string  			 `json:"blacklistReason,omitempty"`           // Motivo de la lista negra o selección (opcional)
 	CreatedAt      time.Time 			 `json:"createdAt"`                           // Fecha de creación
 	UpdatedAt      time.Time 			 `json:"updatedAt"`                           // Fecha de última actualización
-}
-
-// ApiResponse representa la estructura de una respuesta de la API
-type ApiResponse struct {
-    Status  string      `json:"status"`
-    Message string      `json:"message"`
-    Data    interface{} `json:"data"`
 }
 
