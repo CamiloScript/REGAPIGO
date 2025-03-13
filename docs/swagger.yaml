@@ -1,0 +1,1114 @@
+openapi: 3.0.3
+info:
+  title: API de Gestión Documental
+  version: 1.0.0
+  description: |
+    API para gestión documental con capacidad para gestionar subidas individuales y por colecciones a servicio externo
+servers:
+  - url: https://gd.tanner.qa.msys.cl/adf-tanner-service
+    description: Entorno Tanner - Mycrosystem
+  - url: http://localhost:5000
+    description: Entorno local para desarrollo y testing
+
+tags:
+  - name: Autenticación
+    description: Obtención de tickets de acceso
+  - name: Documentos
+    description: Operaciones CRUD con documentos individuales
+  - name: Lote de Documentos
+    description: Procesamiento masivo de múltiples documentos
+
+paths:
+  /auth/login:
+    post:
+      tags: [Autenticación]
+      summary: Generar ticket de autenticación
+      description: Obtiene un token de sesión para operaciones posteriores
+      parameters:
+        - in: header
+          name: ADFTannerServices
+          required: true
+          schema:
+            type: string
+            example: "Api key"
+          description: Identificador único del sistema cliente registrado
+      requestBody:
+        required: true
+        description: |
+          Credenciales de usuario válidas
+
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [userId, password]
+              properties:
+                userId:
+                  type: string
+                  description: Identificador de usuario Alfresco
+                  example: "admin"
+                password:
+                  type: string
+                  format: password
+                  description: Contraseña de acceso
+                  example: "admin"
+            examples:
+              UsuarioAdmin:
+                value:
+                  userId: "admin"
+                  password: "admin"
+              UsuarioRegular:
+                value:
+                  userId: "usuario_consulta"
+                  password: "C0ntr4s3ñ4"
+      responses:
+        200:
+          description: Autenticación exitosa
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  ticket:
+                    type: string
+                    description: Token de acceso temporal
+                    example: "TICKET_138b11ac2ceb3bd03fc0435eede64b23c917ff8c"
+              examples:
+                TicketExitoso:
+                  value:
+                    ticket: "TICKET_138b11ac2ceb3bd03fc0435eede64b23c917ff8c"
+        400:
+          description: Error de formato en la solicitud
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBase"
+              examples:
+                FormatoInválido:
+                  value:
+                    error: "Formato de JSON inválido"
+                    code: 400
+        401:
+          description: Credenciales no válidas
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBase"
+              examples:
+                NoAutorizado:
+                  value:
+                    error: "Credenciales incorrectas"
+                    code: 401
+        500:
+          description: Error interno del sistema
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBase"
+              examples:
+                ErrorServidor:
+                  value:
+                    error: "Error interno de servidor"
+                    code: 500
+
+  /documentos/subir:
+    post:
+      tags: [Documentos]
+      summary: Cargar documento individual
+      description: |
+        Sube un documento al repositorio con sus metadatos asociados.
+        
+        **Ejemplos de metadatos (propiedades):**
+        
+    
+        ```json
+          {
+          "tanner:tipo-documento": "Prueba ",
+          "cm:title": "prueba",
+          "cm:description": "Descripción del documento 1",
+          "tanner:nombre-doc": "prueba lote 1",
+          "cm:versionType": "MAJOR",
+          "cm:versionLabel": "1.0",
+          "tanner:rut-cliente": "05393768-5",
+          "tanner:razon-social-cliente": "Nombre Empresa 1",
+          "tanner:categorias": "Empresas",
+          "tanner:sub-categorias": "Comercial",
+          "tanner:estado-vigencia": "Vigente",
+          "tanner:fecha-termino-vigencia": "2024-12-31T05:00:00.000Z",
+          "tanner:fecha-carga": "2024-03-04T12:00:00.000Z",
+          "tanner:fecha-modificacion": "2024-03-04T12:00:00.000Z",
+          "tanner:observaciones": "Observaciones del documento",
+          "tanner:estado-visado": "Sin información",
+          "tanner:origen": "sistema-adf",
+          "tanner:relacion": "Cliente"
+        }
+        ```
+      requestBody:
+        description: Contenido binario y metadatos estructurados
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [documento, propiedades]
+              properties:
+                documento:
+                  type: string
+                  format: binary
+                  description: Contenido binario del archivo (PDF, DOCX, etc.)
+                propiedades:
+                  type: string
+                  description: |
+                    Metadatos en formato JSON con propiedades del documento.
+                    Debe incluir al menos tipo-documento y rut-cliente.
+      responses:
+        201:
+          description: |
+            Documento almacenado exitosamente
+            
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  entry:
+                    type: object
+                    description: Detalles del documento almacenado
+                    properties:
+                      id:
+                        type: string
+                        format: uuid
+                        description: Identificador único
+                        example: "ca9b94cf-af11-40f3-adcb-80532ec5a4be"
+                      name:
+                        type: string
+                        description: Nombre original del archivo
+                        example: "pruebaotramas"
+                      isFile:
+                        type: boolean
+                        description: Indica si es un archivo
+                        example: true
+                      isFolder:
+                        type: boolean
+                        description: Indica si es una carpeta
+                        example: false
+                      nodeType:
+                        type: string
+                        description: Tipo de nodo
+                        example: "tanner:documento"
+                      parentId:
+                        type: string
+                        format: uuid
+                        description: Identificador del nodo padre
+                        example: "2b05443e-1e18-48f7-8b1b-3ef5ca831378"
+                      createdAt:
+                        type: string
+                        format: date-time
+                        description: Fecha de creación
+                        example: "2025-03-10T16:02:34.065+0000"
+                      modifiedAt:
+                        type: string
+                        format: date-time
+                        description: Fecha de modificación
+                        example: "2025-03-10T16:02:34.065+0000"
+                      createdByUser:
+                        type: object
+                        description: Usuario que creó el documento
+                        properties:
+                          displayName:
+                            type: string
+                            example: "Administrator"
+                          id:
+                            type: string
+                            example: "admin"
+                      modifiedByUser:
+                        type: object
+                        description: Usuario que modificó el documento
+                        properties:
+                          displayName:
+                            type: string
+                            example: "Administrator"
+                          id:
+                            type: string
+                            example: "admin"
+                      content:
+                        type: object
+                        description: Metadatos técnicos
+                        properties:
+                          encoding:
+                            type: string
+                            example: "UTF-8"
+                          mimeType:
+                            type: string
+                            example: "application/pdf"
+                          mimeTypeName:
+                            type: string
+                            example: "Adobe PDF Document"
+                          sizeInBytes:
+                            type: integer
+                            example: 18810
+                      allowableOperations:
+                        type: array
+                        description: Operaciones permitidas
+                        items:
+                          type: string
+                        example: ["delete", "update", "updatePermissions"]
+                      aspectNames:
+                        type: array
+                        description: Nombres de aspectos
+                        items:
+                          type: string
+                        example: ["cm:versionable", "cm:titled", "cm:auditable", "cm:thumbnailModification"]
+                      properties:
+                        type: object
+                        description: Propiedades adicionales del documento
+                        properties:
+                          "cm:description":
+                            type: string
+                            example: "Articulo 85"
+                          "cm:lastThumbnailModification":
+                            type: array
+                            items:
+                              type: string
+                            example: ["doclib:1733284022799"]
+                          "cm:title":
+                            type: string
+                            example: "Articulo 85"
+                          "cm:versionLabel":
+                            type: string
+                            example: "1.0"
+                          "cm:versionType":
+                            type: string
+                            example: "MAJOR"
+                          "tanner:categorias":
+                            type: string
+                            example: "Empresas"
+                          "tanner:estado-vigencia":
+                            type: string
+                            example: "Vigente"
+                          "tanner:estado-visado":
+                            type: string
+                            example: "Sin información"
+                          "tanner:fecha-carga":
+                            type: string
+                            format: date-time
+                            example: "2024-11-19T18:42:03.730Z"
+                          "tanner:fecha-modificacion":
+                            type: string
+                            format: date-time
+                            example: "2024-11-19T18:42:03.730Z"
+                          "tanner:fecha-termino-vigencia":
+                            type: string
+                            format: date-time
+                            example: "2024-11-22T05:00:00.000Z"
+                          "tanner:nombre-doc":
+                            type: string
+                            example: "Articulo 85"
+                          "tanner:observaciones":
+                            type: string
+                            example: "Demos"
+                          "tanner:origen":
+                            type: string
+                            example: "sistema-adf"
+                          "tanner:razon-social-cliente":
+                            type: string
+                            example: "Samuel"
+                          "tanner:relacion":
+                            type: string
+                            example: "Cliente"
+                          "tanner:rut-cliente":
+                            type: string
+                            example: "05393768-5"
+                          "tanner:sub-categorias":
+                            type: string
+                            example: "Comercial"
+                          "tanner:tipo-documento":
+                            type: string
+                            example: "pruebaotramas"
+              examples:
+                DocumentoCreado:
+                  value:
+                    entry:
+                      allowableOperations: [
+                        "delete",
+                        "update",
+                        "updatePermissions"
+                      ]
+                      aspectNames: [
+                        "cm:versionable",
+                        "cm:titled",
+                        "cm:auditable",
+                        "cm:thumbnailModification"
+                      ]
+                      content: {
+                        "encoding": "UTF-8",
+                        "mimeType": "application/pdf",
+                        "mimeTypeName": "Adobe PDF Document",
+                        "sizeInBytes": 18810
+                      }
+                      createdAt: "2025-03-10T16:02:34.065+0000"
+                      createdByUser: {
+                        "displayName": "Administrator",
+                        "id": "admin"
+                      }
+                      definition: null
+                      id: "ca9b94cf-af11-40f3-adcb-80532ec5a4be"
+                      isDirectLinkEnabled: null
+                      isFavorite: null
+                      isFile: true
+                      isFolder: false
+                      isLink: null
+                      isLocked: null
+                      modifiedAt: "2025-03-10T16:02:34.065+0000"
+                      modifiedByUser: {
+                        "displayName": "Administrator",
+                        "id": "admin"
+                      }
+                      name: "prueba"
+                      nodeType: "tanner:documento"
+                      parentId: "2b05443e-1e18-48f7-8b1b-3ef5ca831378"
+                      path: null
+                      permissions: null
+                      properties: {
+                        "cm:description": "Articulo 85",
+                        "cm:lastThumbnailModification": [
+                          "doclib:1733284022799"
+                        ],
+                        "cm:title": "Articulo 85",
+                        "cm:versionLabel": "1.0",
+                        "cm:versionType": "MAJOR",
+                        "tanner:categorias": "Empresas",
+                        "tanner:estado-vigencia": "Vigente",
+                        "tanner:estado-visado": "Sin información",
+                        "tanner:fecha-carga": "2024-11-19T18:42:03.730Z",
+                        "tanner:fecha-modificacion": "2024-11-19T18:42:03.730Z",
+                        "tanner:fecha-termino-vigencia": "2024-11-22T05:00:00.000Z",
+                        "tanner:nombre-doc": "Articulo 85",
+                        "tanner:observaciones": "Demos",
+                        "tanner:origen": "sistema-adf",
+                        "tanner:razon-social-cliente": "Empresa Prueba",
+                        "tanner:relacion": "Cliente",
+                        "tanner:rut-cliente": "05393768-5",
+                        "tanner:sub-categorias": "Comercial",
+                        "tanner:tipo-documento": "pruebaotramas"
+                      }
+        400:
+          description: Error de validación de entrada
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBase"
+              examples:
+                ArchivoFaltante:
+                  value:
+                    error: "Se requiere un archivo"
+                    code: 400
+                MetadatosFaltantes:
+                  value:
+                    error: "Metadatos requeridos"
+                    code: 400
+                MetadatosInvalidos:
+                  value:
+                    error: "Formato de metadatos incorrecto"
+                    code: 400
+                ValidacionFallida:
+                  value:
+                    error: "El campo 'tipoDocumento' es obligatorio"  # Ejemplo de error específico
+                    code: 400
+                SubCatFaltante:
+                  value:
+                    error: "El campo 'tanner:sub-categorias' es obligatorio"
+                    code: 400
+                SubCatInvalida:
+                  value:
+                    error: "Valor 'Contabilidad' no permitido en 'tanner:sub-categorias'. Valores válidos: Riesgo, Comercial, Operaciones, Legal, Documentos de Cliente"
+                    code: 400
+        401:
+          description: No autorizado
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBase"
+              examples:
+                TicketFaltante:
+                  value:
+                    error: "Se requiere el header Authorization"
+                    code: 401
+        500:
+          description: Error interno del servidor
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBase"
+              examples:
+                ErrorProcesamiento:
+                  value:
+                    error: "Error al procesar el documento"
+                    code: 500
+                ErrorPersistencia:
+                  value:
+                    error: "Error al guardar registro en base de datos"  # Si se decide exponer este error
+                    code: 500
+
+  /documentos/listar:
+    post:
+      tags: [Documentos]
+      summary: Buscar documentos
+      description: |
+        Búsqueda avanzada con filtros sobre metadatos
+        campos disponibles para filtrar:
+
+        -tanner:tipo-documento
+
+        -tanner:razon-social-cliente
+
+        -tanner:estado-visado
+
+        -tanner:estado-vigencia
+
+        -tanner:rut-cliente
+
+        -tanner:origen
+        
+        -tanner:relacion
+
+      requestBody:
+        description: Criterios de búsqueda y paginación
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                page:
+                  type: integer
+                  minimum: 1
+                  default: 1
+                  description: Número de página actual
+                size:
+                  type: integer
+                  minimum: 1
+                  maximum: 100
+                  default: 20
+                  description: Elementos por página
+                propiedades:
+                  type: object
+                  description: Filtros aplicables a los metadatos
+                  properties:
+                    "tanner:tipo-documento":
+                      type: string
+                      description: Clasificación documental
+                      enum: [Articulo 85, Contrato, Factura, Otro]
+                    "cm:title":
+                      type: string
+                      description: Título descriptivo
+                    "tanner:rut-cliente":
+                      type: string
+                      description: Identificador tributario chileno
+                      pattern: '^\d{7,8}-[\dKk]$'
+            examples:
+              BusquedaSimple:
+                value:
+                  "tanner:rut-cliente": "05393768-5"
+              BusquedaCompleja:
+                value:
+                  "tanner:nombre-doc": "Contrato Servicios 2024"
+                  "tanner:tipo-documento": "Contrato"
+                  "tanner:razon-social-cliente": "Nombre empresa 1"
+                  "tanner:rut-cliente": "05393768-5"
+                  "tanner:estado-vigencia": "Vigente"
+                  "tanner:fecha-carga": "2024-03-04T12:00:00.000Z"
+      responses:
+        200:
+          description: Resultados de búsqueda
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: object
+                    description: Documentos encontrados indexados por ID
+                    additionalProperties:
+                      type: object
+                      properties:
+                        id:
+                          type: string
+                          format: uuid
+                          description: Identificador único
+                        nombre:
+                          type: string
+                          description: Nombre del documento
+                        tipo:
+                          type: string
+                          description: Tipo de documento
+                        tamano:
+                          type: integer
+                          description: Tamaño del documento en bytes
+                        propiedades:
+                          type: object
+                          description: Metadatos del documento
+                          properties:
+                            "cm:description":
+                              type: string
+                              description: Descripción del documento
+                            "cm:lastThumbnailModification":
+                              type: array
+                              items:
+                                type: string
+                              description: Modificación de miniaturas
+                            "cm:title":
+                              type: string
+                              description: Título del documento
+                            "cm:versionLabel":
+                              type: string
+                              description: Etiqueta de versión
+                            "cm:versionType":
+                              type: string
+                              description: Tipo de versión
+                            "tanner:categorias":
+                              type: string
+                              description: Categoría del documento
+                            "tanner:estado-vigencia":
+                              type: string
+                              description: Estado de vigencia
+                            "tanner:estado-visado":
+                              type: string
+                              description: Estado de visado
+                            "tanner:fecha-carga":
+                              type: string
+                              format: date-time
+                              description: Fecha de carga
+                            "tanner:fecha-modificacion":
+                              type: string
+                              format: date-time
+                              description: Fecha de modificación
+                            "tanner:fecha-termino-vigencia":
+                              type: string
+                              format: date-time
+                              description: Fecha de término de vigencia
+                            "tanner:nombre-doc":
+                              type: string
+                              description: Nombre del documento
+                            "tanner:numero-operacion":
+                              type: string
+                              description: Número de operación
+                            "tanner:observaciones":
+                              type: string
+                              description: Observaciones
+                            "tanner:origen":
+                              type: string
+                              description: Origen del documento
+                            "tanner:razon-social-cliente":
+                              type: string
+                              description: Razón social del cliente
+                            "tanner:relacion":
+                              type: string
+                              description: Relación
+                            "tanner:rut-cliente":
+                              type: string
+                              description: RUT del cliente
+                            "tanner:sub-categorias":
+                              type: string
+                              description: Subcategoría
+                            "tanner:tipo-documento":
+                              type: string
+                              description: Tipo de documento
+                        autor:
+                          type: string
+                          description: Autor del documento
+                        modificadoEn:
+                          type: string
+                          description: Fecha de última modificación
+                  meta:
+                    type: object
+                    description: Metadatos de paginación
+                    properties:
+                      total:
+                        type: integer
+                        description: Total de documentos coincidentes
+              examples:
+                ResultadosBusqueda:
+                  value: 
+                    {
+                      "data": {
+                        "4c114dfb-30d3-4f94-87dc-83e1a4cd099c": {
+                          "id": "4c114dfb-30d3-4f94-87dc-83e1a4cd099c",
+                          "nombre": "Otros",
+                          "tipo": "",
+                          "tamano": 0,
+                          "propiedades": {
+                            "cm:description": "Otros",
+                            "cm:lastThumbnailModification": [
+                              "doclib:1734965174013"
+                            ],
+                            "cm:title": "Otros",
+                            "cm:versionLabel": "1.0",
+                            "cm:versionType": "MAJOR",
+                            "tanner:categorias": "Empresas",
+                            "tanner:estado-vigencia": "Vigente",
+                            "tanner:estado-visado": "Sin información",
+                            "tanner:fecha-carga": "2024-12-23T14:46:09.977Z",
+                            "tanner:fecha-modificacion": "2024-12-23T14:46:09.977Z",
+                            "tanner:fecha-termino-vigencia": "2024-12-28T05:00:00.000Z",
+                            "tanner:nombre-doc": "Otros",
+                            "tanner:numero-operacion": "123456789",
+                            "tanner:observaciones": "Demo",
+                            "tanner:origen": "sistema-adf",
+                            "tanner:razon-social-cliente": "Gilberto Alcala",
+                            "tanner:relacion": "Ambos",
+                            "tanner:rut-cliente": "05393768-5",
+                            "tanner:sub-categorias": "Documentos de Cliente",
+                            "tanner:tipo-documento": "Otros"
+                          },
+                          "autor": "",
+                          "modificadoEn": ""
+                        }
+                      },
+                      "meta": {
+                        "total": 1
+                      }
+                    }
+        400:
+          description: Parámetros inválidos
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBase"
+              examples:
+                PaginaciónInválida:
+                  value:
+                    error: "formato de filtros inválido"
+        404:
+          description: Sin resultados
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBase"
+              examples:
+                SinDocumentos:
+                  value:
+                    error: "Error al listar documentos"
+
+        500:
+          description: Error de sistema
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBase"
+              examples:
+                ErrorBúsqueda:
+                  value:
+                    error: "Error al listar documentos"
+                    code: 500
+
+  /documentos/descargar:
+    post:
+      tags: [Documentos]
+      summary: Descargar documento
+      description: Obtiene el contenido binario de un documento por su ID único
+      parameters:
+       
+        - in: query
+          name: idFile
+          required: true
+          schema:
+            type: string
+            format: uuid
+            example: e72c4f24-ae2f-4ad9-b654-5fee2654e315
+          description: Identificador único del documento en formato
+      responses:
+        200:
+          description: Contenido binario del documento
+          content:
+            application/pdf:
+              schema:
+                type: string
+                format: binary
+              examples:
+                DocEncontrado:
+                  value:
+                    Documento.pdf
+
+        404:
+          description: Documento no encontrado
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBase"
+              examples:
+                DocNoEncontrado:
+                  value:
+                    error: "ID e72c4f24-ae2f-4ad9-b654-5fee2654e315 no existe"
+                    code: 404
+        410:
+          description: Documento no disponible
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBase"
+              examples:
+                DocEliminado:
+                  value:
+                    error: "Documento marcado como eliminado"
+                    code: 410
+        500:
+          description: Error de almacenamiento
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBase"
+              examples:
+                ErrorAlmacenamiento:
+                  value:
+                    error: "No se pudo recuperar el archivo físico"
+                    code: 500
+
+  /documentos/subir-lote:
+    post:
+      tags: [Lote de Documentos]
+      summary: Carga masiva de documentos
+      description: |
+        Procesamiento batch de múltiples documentos con sus metadatos.
+        
+        Permite subir varios archivos en una sola operación, cada uno con sus metadatos correspondientes.
+        El número de elementos en el array de propiedades debe coincidir con el número de archivos.
+      security:
+        - BasicAuth: []
+      parameters: []
+
+      requestBody:
+        description: |
+          Lote de documentos y metadatos asociados.
+          
+          **Ejemplo de propiedades para contratos:**
+          ```json
+          [
+            {
+              "tanner:tipo-documento": "Prueba Lotes",
+              "cm:title": "prueba lote1",
+              "cm:description": "Descripción del documento 1",
+              "tanner:nombre-doc": "prueba lote 1",
+              "cm:versionType": "MAJOR",
+              "cm:versionLabel": "1.0",
+              "tanner:rut-cliente": "05393768-5",
+              "tanner:razon-social-cliente": "Nombre Empresa 1",
+              "tanner:categorias": "Empresas",
+              "tanner:sub-categorias": "Comercial",
+              "tanner:estado-vigencia": "Vigente",
+              "tanner:fecha-termino-vigencia": "2024-12-31T05:00:00.000Z",
+              "tanner:fecha-carga": "2024-03-04T12:00:00.000Z",
+              "tanner:fecha-modificacion": "2024-03-04T12:00:00.000Z",
+              "tanner:observaciones": "Observaciones del documento",
+              "tanner:estado-visado": "Sin información",
+              "tanner:origen": "sistema-adf",
+              "tanner:relacion": "Cliente"
+            },
+            {
+              "tanner:tipo-documento": "Prueba Lotes 2",
+              "cm:title": "pruebalote2",
+              "cm:description": "Descripción del documento 2",
+              "tanner:nombre-doc": "prueba lote 2",
+              "cm:versionType": "MAJOR",
+              "cm:versionLabel": "1.0",
+              "tanner:rut-cliente": "05393768-5",
+              "tanner:razon-social-cliente": "Nombre Empresa 2",
+              "tanner:categorias": "Empresas",
+              "tanner:sub-categorias": "Comercial",
+              "tanner:estado-vigencia": "Vigente",
+              "tanner:fecha-termino-vigencia": "2024-12-31T05:00:00.000Z",
+              "tanner:fecha-carga": "2024-03-04T12:00:00.000Z",
+              "tanner:fecha-modificacion": "2024-03-04T12:00:00.000Z",
+              "tanner:observaciones": "Observaciones del documento",
+              "tanner:estado-visado": "Sin información",
+              "tanner:origen": "sistema-adf",
+              "tanner:relacion": "Cliente"
+            }
+          ]
+          ```
+        content:
+          multipart/form-data:
+            schema:
+              type: object
+              required: [documento, propiedades]
+              properties:
+                documento:
+                  type: array
+                  description: Lista de archivos a subir (máximo 100 archivos)
+                  items:
+                    type: string
+                    format: binary
+                propiedades:
+                  type: string
+                  description: |
+                    Array JSON con metadatos para cada documento.
+                    Debe contener exactamente el mismo número de elementos que archivos.
+      responses:
+        200:
+          description: |
+            Resultado del procesamiento
+            
+            **Ejemplo de respuesta:**
+   
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  resultados:
+                    type: array
+                    description: Detalle por cada documento procesado
+                    items:
+                      type: object
+                      properties:
+                        nombreArchivo:
+                          type: string
+                          description: Nombre original del archivo
+                        estado:
+                          type: string
+                          description: Estado del procesamiento
+                          enum: [EXITOSO, ERROR]
+                        error:
+                          type: string
+                          description: Mensaje de error (si aplica)
+                        razonSocial:
+                          type: string
+                          description: Razón social asociada
+                        rut:
+                          type: string
+                          description: RUT del cliente relacionado
+                        idArchivo:
+                          type: string
+                          description: Identificador único asignado
+                  total:
+                    type: integer
+                    description: Total de documentos procesados
+                  exitosos:
+                    type: integer
+                    description: Documentos procesados correctamente
+              examples:
+                ResultadoLote:
+                  value:
+                    resultados:
+                      - nombreArchivo: "contrato1.pdf"
+                        estado: "EXITOSO"
+                        razonSocial: "Empresa ABC"
+                        rut: "76234567-8"
+                        idArchivo: "d3b4f5a6-7c8d-9e0f-a1b2-c3d4e5f6a7b8"
+                      - nombreArchivo: "contrato2.pdf"
+                        estado: "ERROR"
+                        error: "Validación fallida"
+                        razonSocial: "Empresa XYZ"
+                        rut: "96325874-1"
+                    total: 2
+                    exitosos: 1
+        400:
+          description: Error de validación de entrada
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBase"
+              examples:
+                FormularioInvalido:
+                  value:
+                    error: "Error al procesar el formulario"
+                    code: 400
+                ArchivosFaltantes:
+                  value:
+                    error: "No se encontraron archivos"
+                    code: 400
+                MetadatosFaltantes:
+                  value:
+                    error: "No se encontraron metadatos"
+                    code: 400
+                MetadatosInvalidos:
+                  value:
+                    error: "Formato de metadatos inválido"
+                    code: 400
+                CantidadInconsistente:
+                  value:
+                    error: "La cantidad de metadatos debe coincidir con la cantidad de archivos"
+                    code: 400
+        401:
+          description: No autorizado
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBase"
+              examples:
+                TicketFaltante:
+                  value:
+                    error: "Se requiere el header Authorization"  # Mensaje exacto del código
+                    code: 401
+        500:
+          description: Error interno del servidor
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBase"
+              examples:
+                ErrorProcesamientoLote:
+                  value:
+                    error: "Error al procesar el lote"  # Coincide con errores internos
+                    code: 500
+
+  /documentos/buscar-descargar:
+    post:
+      tags: [Documentos]
+      summary: Buscar y descargar documento
+      description: |
+        Busca un documento por criterios y lo descarga directamente en una sola operación.
+        
+        Primero realiza una búsqueda en la base de datos interna con los criterios proporcionados,
+        luego recupera el documento desde Alfresco utilizando el ID encontrado.
+      parameters: []
+
+      requestBody:
+        description: Criterios de búsqueda del documento
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                rut_cliente:
+                  type: string
+                  description: RUT del cliente (formato MongoDB)
+                  example: "05393768-5"
+                tipo_documento:
+                  type: string
+                  description: Tipo de documento (formato MongoDB)
+                  example: "Contrato"
+                nombre_documento:
+                  type: string
+                  description: Nombre del documento (formato MongoDB)
+                fecha_carga:
+                  type: string
+                  description: Fecha de carga (formato MongoDB)
+                razon_social:
+                  type: string
+                  description: Razón social (formato MongoDB)
+                "tanner:rut-cliente":
+                  type: string
+                  description: RUT del cliente (formato Alfresco)
+                  example: "05393768-5"
+                "tanner:tipo-documento":
+                  type: string
+                  description: Tipo de documento (formato Alfresco)
+                  example: "Contrato"
+                "tanner:nombre-doc":
+                  type: string
+                  description: Nombre del documento (formato Alfresco)
+                "tanner:fecha-carga":
+                  type: string
+                  description: Fecha de carga (formato Alfresco)
+                "tanner:razon-social-cliente":
+                  type: string
+                  description: Razón social (formato Alfresco)
+                "tanner:estado-vigencia":
+                  type: string
+                  description: Estado de vigencia del documento
+                  example: "Vigente"
+            examples:
+              Busqueda por propiedades tanner:
+                value:
+                  "tanner:nombre-doc": "Contrato Servicios 2024"
+                  "tanner:tipo-documento": "Contrato"
+                  "tanner:razon-social-cliente": "Nombre empresa 1"
+                  "tanner:rut-cliente": "05393768-5"
+                  "tanner:estado-vigencia": "Vigente"
+                  "tanner:fecha-carga": "2024-03-04T12:00:00.000Z"
+
+              Busqueda por propiedades mongoDB:
+                value: 
+                  "tipo_documento": "Contrato"
+                  "rut_cliente": "05393768-5"
+                  "nombre_documento": "Contrato Servicios 2024"
+                  "fecha_carga": "2024-03-04T12:00:00.000Z"
+                  "razon_social": "Nombre empresa 1"
+      responses:
+        200:
+          description: Contenido binario del documento
+          content:
+            application/pdf:
+              schema:
+                type: string
+                format: binary
+              examples:
+                DocEncontrado:
+                  value:
+                    Documento.pdf
+        400:
+          description: Error de validación de entrada
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBase"
+              examples:
+                RUTFaltante:
+                  value:
+                    error: "Se requiere el campo rut_cliente o tanner:rut-cliente"
+                    code: 400
+        401:
+          description: Problemas de autenticación
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBase"
+              examples:
+                TicketFaltante:
+                  value:
+                    error: "Se requiere el header Authorization"
+                    code: 401
+        404:
+          description: Documento no encontrado
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBase"
+              examples:
+                DocNoEncontrado:
+                  value:
+                    error: "No se encontraron documentos con los criterios proporcionados"
+                    code: 404
+        500:
+          description: Error de procesamiento
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorBase"
+              examples:
+                ErrorDescarga:
+                  value:
+                    error: "Error al recuperar el archivo desde el repositorio"
+                    code: 500
+
+components:
+  securitySchemes:
+    BasicAuth:
+      type: http
+      scheme: basic
+      description: Autenticación básica con ticket de acceso
+
+  parameters:
+  
+    ADFHeader:
+      in: header
+      name: ADFTannerServices
+      description: Identificador único del sistema cliente
+      required: true
+      schema:
+        type: string
+        example: ""
+
+  schemas:
+    ErrorBase:
+      type: object
+      description: Estructura estándar para respuestas de error
+      properties:
+        error:
+          type: string
+          description: Mensaje descriptivo del error
+          example: "Error de validación"
+        code:
+          type: integer
+          description: Código HTTP asociado
+          example: 400
+
