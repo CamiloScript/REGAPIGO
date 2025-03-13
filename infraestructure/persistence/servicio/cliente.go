@@ -9,7 +9,6 @@ import (
     "mime/multipart"
     "net/http"
     "regexp"
-    "path/filepath"
     "time"
     "github.com/CamiloScript/REGAPIGO/shared/logger"
     "github.com/CamiloScript/REGAPIGO/application/documento"
@@ -41,13 +40,13 @@ func NuevoClienteAlfresco(urlBase, apiKey string, log *logger.Registrador) *Clie
 // SubirDocumento envía un archivo y metadatos a Alfresco.
 // Parámetros:
 //   - ctx: Contexto para controlar la solicitud.
-//   - archivo: Archivo a subir (multipart).
+//   - fileBytes: Bytes del archivo a subir.
 //   - metadatos: Metadatos del archivo en formato JSON.
 //   - ticket: Ticket de autenticación.
 // Retorna un mapa con la respuesta de Alfresco o un error en caso de fallo.
 func (c *ClienteAlfresco) SubirDocumento(
     ctx context.Context,
-    archivo *multipart.FileHeader,
+    fileBytes []byte,
     metadatos string,
     ticket string,
 ) (map[string]interface{}, error) {
@@ -59,23 +58,15 @@ func (c *ClienteAlfresco) SubirDocumento(
     cuerpo := &bytes.Buffer{}
     escritor := multipart.NewWriter(cuerpo)
 
-    // Abrir archivo
-    f, err := archivo.Open()
-    if err != nil {
-        c.log.Error("Error al abrir archivo", map[string]interface{}{"error": err.Error()})
-        return nil, fmt.Errorf("error al abrir archivo: %v", err)
-    }
-    defer f.Close()
-
     // Crear parte del archivo
-    parte, err := escritor.CreateFormFile("documento", filepath.Base(archivo.Filename))
+    parte, err := escritor.CreateFormFile("documento", "documento.pdf")
     if err != nil {
         c.log.Error("Error al crear formulario", map[string]interface{}{"error": err.Error()})
         return nil, fmt.Errorf("error al crear formulario: %v", err)
     }
 
     // Copiar contenido del archivo
-    if _, err := io.Copy(parte, f); err != nil {
+    if _, err := io.Copy(parte, bytes.NewReader(fileBytes)); err != nil {
         c.log.Error("Error al copiar archivo", map[string]interface{}{"error": err.Error()})
         return nil, fmt.Errorf("error al copiar archivo: %v", err)
     }

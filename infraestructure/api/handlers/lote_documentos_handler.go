@@ -5,7 +5,7 @@ import (
 	"mime/multipart"
 	"net/http"
     "fmt"
-
+    "io"
 	"github.com/CamiloScript/REGAPIGO/domain/documentos"
 	"github.com/gin-gonic/gin"
     "github.com/CamiloScript/REGAPIGO/infraestructure/persistence/db/mongo"
@@ -110,7 +110,20 @@ func (h *ManejadorDocumentos) ManejadorLoteDocumentos(c *gin.Context) {
             errores = append(errores, fmt.Sprintf("Error al parsear metadatos para %s: %v", archivo.Filename, err))
             continue
         }
-        respuesta, err := h.servicio.SubirDocumento(c, archivo, metadatosMap, ticket)
+        file, err := archivo.Open()
+        if err != nil {
+            errores = append(errores, fmt.Sprintf("Error al abrir archivo %s: %v", archivo.Filename, err))
+            continue
+        }
+        defer file.Close()
+
+        fileContent, err := io.ReadAll(file)
+        if err != nil {
+            errores = append(errores, fmt.Sprintf("Error al leer archivo %s: %v", archivo.Filename, err))
+            continue
+        }
+
+        respuesta, err := h.servicio.SubirDocumento(c, fileContent, metadatosMap, ticket)
         if err != nil {
             errores = append(errores, fmt.Sprintf("Error al subir archivo %s: %v", archivo.Filename, err))
             continue

@@ -2,15 +2,13 @@ package handlers
 
 import (
     "net/http"
-    "mime/multipart"
     "github.com/CamiloScript/REGAPIGO/application/documento"
     "github.com/CamiloScript/REGAPIGO/shared/logger"
     "github.com/CamiloScript/REGAPIGO/shared/config"
     "github.com/gin-gonic/gin"
     "github.com/CamiloScript/REGAPIGO/infraestructure/persistence/db/mongo"
-    "github.com/CamiloScript/REGAPIGO/domain/auth" // Importar el paquete auth
+    "github.com/CamiloScript/REGAPIGO/domain/auth" 
     "github.com/CamiloScript/REGAPIGO/shared/utils"
-    "os"
 )
 
 // ManejadorDocumentos controla las operaciones con documentos.
@@ -39,83 +37,48 @@ func NuevoManejadorDocumentos(
 
 // ManejadorSubirDocumento maneja la subida de documentos en formato base64.
 func (h *ManejadorDocumentos) ManejadorSubirDocumento(c *gin.Context) {
-    // 1. Autenticación interna
-    ticket, err := h.internalAuth.AutenticarInternamente()
-    if err != nil {
-        c.JSON(http.StatusInternalServerError, gin.H{"error": "Error interno de autenticación"})
-        return
-    }
+// 1. Autenticación interna
+ticket, err := h.internalAuth.AutenticarInternamente()
+if err != nil {
+    c.JSON(http.StatusInternalServerError, gin.H{"error": "Error interno de autenticación"})
+    return
+}
 
-    // 2. Extraer archivo en base64 y metadatos del cuerpo de la solicitud
-    var solicitud struct {
-        Base64    string                 `json:"base64"`    // Archivo en formato base64
-        Metadatos map[string]interface{} `json:"metadatos"` // Metadatos en formato JSON
-    }
-    if err := c.ShouldBindJSON(&solicitud); err != nil {
-        h.log.Error("Solicitud inválida", map[string]interface{}{"error": err.Error()})
-        c.JSON(http.StatusBadRequest, gin.H{"error": "Formato de solicitud incorrecto"})
-        return
-    }
+// 2. Extraer archivo en base64 y metadatos del cuerpo de la solicitud
+var solicitud struct {
+    Base64    string                 `json:"base64"`    // Archivo en formato base64
+    Metadatos map[string]interface{} `json:"metadatos"` // Metadatos en formato JSON
+}
+if err := c.ShouldBindJSON(&solicitud); err != nil {
+    h.log.Error("Solicitud inválida", map[string]interface{}{"error": err.Error()})
+    c.JSON(http.StatusBadRequest, gin.H{"error": "Formato de solicitud incorrecto"})
+    return
+}
 
-    // 3. Decodificar el archivo base64 a bytes
-    fileBytes, err := utils.DecodeBase64(solicitud.Base64)
-    if err != nil {
-        h.log.Error("Error al decodificar base64", map[string]interface{}{"error": err.Error()})
-        c.JSON(http.StatusBadRequest, gin.H{"error": "Archivo base64 inválido"})
-        return
-    }
+// 3. Decodificar el archivo base64 a bytes
+fileBytes, err := utils.DecodeBase64(solicitud.Base64)
+if err != nil {
+    h.log.Error("Error al decodificar base64", map[string]interface{}{"error": err.Error()})
+    c.JSON(http.StatusBadRequest, gin.H{"error": "Archivo base64 inválido"})
+    return
+}
 
-    // 4. Crear un archivo temporal para enviar a Alfresco
-    tempFile, err := os.CreateTemp("", "documento-*.pdf")
-    if err != nil {
-        h.log.Error("Error al crear archivo temporal", map[string]interface{}{"error": err.Error()})
-        c.JSON(http.StatusInternalServerError, gin.H{"error": "Error al crear archivo temporal"})
-        return
-    }
-    defer os.Remove(tempFile.Name())
+// 4. Delegar al servicio de documentos
+respuesta, err := h.servicio.SubirDocumento(c, fileBytes, solicitud.Metadatos, ticket)
+if err != nil {
+    h.log.Error("Error interno", map[string]interface{}{"error": err.Error()})
+    c.JSON(http.StatusInternalServerError, gin.H{"error": "Error al procesar el documento"})
+    return
+}
 
-    if _, err := tempFile.Write(fileBytes); err != nil {
-        h.log.Error("Error al escribir en archivo temporal", map[string]interface{}{"error": err.Error()})
-        c.JSON(http.StatusInternalServerError, gin.H{"error": "Error al escribir en archivo temporal"})
-        return
-    }
-    if err := tempFile.Close(); err != nil {
-        h.log.Error("Error al cerrar archivo temporal", map[string]interface{}{"error": err.Error()})
-        c.JSON(http.StatusInternalServerError, gin.H{"error": "Error al cerrar archivo temporal"})
-        return
-    }
+// 5. Responder con éxito
+c.JSON(http.StatusOK, respuesta)
+h.log.Info("Documento subido", map[string]interface{}{"id": respuesta["entry"].(map[string]interface{})["id"]})
 
-    // 5. Abrir el archivo temporal para crear el FileHeader
-    tempFile, err = os.Open(tempFile.Name())
-    if err != nil {
-        h.log.Error("Error al abrir archivo temporal", map[string]interface{}{"error": err.Error()})
-        c.JSON(http.StatusInternalServerError, gin.H{"error": "Error al abrir archivo temporal"})
-        return
-    }
-    defer tempFile.Close()
-
-    // Crear un FileHeader para el archivo temporal
-    fileHeader := &multipart.FileHeader{
-        Filename: tempFile.Name(),
-        Size:     int64(len(fileBytes)),
-    }
-
-    // 6. Delegar al servicio de documentos
-    respuesta, err := h.servicio.SubirDocumento(c, fileHeader, solicitud.Metadatos, ticket)
-    if err != nil {
-        h.log.Error("Error interno", map[string]interface{}{"error": err.Error()})
-        c.JSON(http.StatusInternalServerError, gin.H{"error": "Error al procesar el documento"})
-        return
-    }
-
-    // 7. Responder con éxito
-    c.JSON(http.StatusOK, respuesta)
-    h.log.Info("Documento subido", map[string]interface{}{"id": respuesta["entry"].(map[string]interface{})["id"]})
-
-    // 8. Persistir en MongoDB
-    if err := mongo.GuardarEnMongoDB(respuesta, h.log); err != nil {
-        h.log.Error("Error en persistencia MongoDB", map[string]interface{}{"error": err.Error()})
-    }
+// 6. Persistir en MongoDB
+if err := mongo.GuardarEnMongoDB(respuesta, h.log); err != nil {
+    h.log.Error("Error en persistencia MongoDB", map[string]interface{}{"error": err.Error()})
+}
 }
 
 // ManejadorListarDocumentos procesa el listado de documentos.

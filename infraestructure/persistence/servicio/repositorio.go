@@ -4,7 +4,6 @@ import (
     "github.com/gin-gonic/gin"
     "github.com/CamiloScript/REGAPIGO/domain/documentos"
     "github.com/CamiloScript/REGAPIGO/shared/logger"
-    "mime/multipart"
     "github.com/CamiloScript/REGAPIGO/shared/config"
 )
 
@@ -42,17 +41,18 @@ func NuevoServicioDocumentos(
     }
 }
 
+
 // SubirDocumento implementa la subida stateless.
 // Parámetros:
 //   - c: Contexto de Gin.
-//   - archivo: Archivo a subir.
+//   - fileBytes: Bytes del archivo a subir.
 //   - metadatos: Metadatos del documento en formato JSON.
 //   - ticket: Ticket de autenticación.
 //   - apiKey: API Key para autenticación.
 // Retorna un mapa con la respuesta de Alfresco o un error en caso de fallo.
 func (s *ServicioAlfresco) SubirDocumento(
     c *gin.Context,
-    archivo *multipart.FileHeader,
+    fileBytes []byte,
     metadatos string,
     ticket string,
     apiKey string,
@@ -60,7 +60,7 @@ func (s *ServicioAlfresco) SubirDocumento(
 
     // Crear cliente con API Key y ticket actual
     cliente := NuevoClienteAlfresco(s.urlBase, apiKey, s.log)
-    return cliente.SubirDocumento(c.Request.Context(), archivo, metadatos, ticket)
+    return cliente.SubirDocumento(c.Request.Context(), fileBytes, metadatos, ticket)
 }
 
 // ListarDocumentos implementa el listado stateless.

@@ -2,7 +2,6 @@ package documentos
 
 import (
     "github.com/gin-gonic/gin" // Framework web para manejar solicitudes HTTP
-    "mime/multipart"           // Para manejar archivos en solicitudes multipart/form-data
 )
 
 // AlmacenamientoDocumentos define las operaciones necesarias para interactuar con Alfresco.
@@ -11,7 +10,7 @@ type AlmacenamientoDocumentos interface {
     // SubirDocumento maneja la subida de un documento a Alfresco.
     // Recibe:
     // - c: Contexto de Gin para manejar la solicitud HTTP.
-    // - archivo: Archivo a subir (multipart.FileHeader).
+    // - fileBytes: Bytes del archivo a subir.
     // - metadatos: Metadatos asociados al archivo en formato string.
     // - ticket: Ticket de autenticación para Alfresco.
     // - apiKey: API Key de Alfresco para autorización.
@@ -20,11 +19,12 @@ type AlmacenamientoDocumentos interface {
     // - Un error en caso de fallo.
     SubirDocumento(
         c *gin.Context,
-        archivo *multipart.FileHeader,
+        fileBytes []byte,
         metadatos string,
         ticket string,
         apiKey string,
     ) (map[string]interface{}, error)
+
 
     // ListarDocumentos maneja la obtención de un listado de documentos desde Alfresco.
     // Recibe:

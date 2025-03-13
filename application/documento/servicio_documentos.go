@@ -5,11 +5,10 @@ import (
     "github.com/CamiloScript/REGAPIGO/domain/documentos"
     "github.com/CamiloScript/REGAPIGO/shared/utils"
     "github.com/CamiloScript/REGAPIGO/shared/logger"
-    "mime/multipart"
     "fmt"
     "errors"
-    "io"
     "encoding/json"
+    
 )
 
 // ErrDocumentoNoEncontrado es un error que se produce cuando un documento no se encuentra.
@@ -38,37 +37,24 @@ func NuevoServicioDocumentos(
 // SubirDocumento maneja la subida de un documento, validando el tipo de archivo.
 func (s *ImplementacionServicioDocumentos) SubirDocumento(
     c *gin.Context,
-    archivo *multipart.FileHeader,
+    fileBytes []byte,
     metadatos map[string]interface{},
     ticket string,
 ) (map[string]interface{}, error) {
-    // 1. Leer el contenido del archivo
-    file, err := archivo.Open()
-    if err != nil {
-        return nil, fmt.Errorf("no se pudo abrir el archivo: %v", err)
-    }
-    defer file.Close()
-
-    // Leer los primeros bytes del archivo para detectar el tipo MIME
-    buffer := make([]byte, 512)
-    if _, err := file.Read(buffer); err != nil && err != io.EOF {
-        return nil, fmt.Errorf("no se pudo leer el archivo: %v", err)
-    }
-
-    // 2. Validar el tipo de archivo
-    mimeType := utils.DetectMimeTypeFromContent(buffer)
+    // 1. Validar el tipo de archivo
+    mimeType := utils.DetectMimeTypeFromContent(fileBytes)
     if mimeType != "image/jpeg" && mimeType != "image/png" && mimeType != "application/pdf" {
         return nil, fmt.Errorf("tipo de archivo no soportado: %s", mimeType)
     }
 
-    // 3. Convertir metadatos a JSON
+    // 2. Convertir metadatos a JSON
     metadatosJSON, err := json.Marshal(metadatos)
     if err != nil {
         return nil, fmt.Errorf("error al convertir metadatos a JSON: %v", err)
     }
 
-    // 4. Delegar la operación de subida al almacenamiento
-    respuesta, err := s.almacenamiento.SubirDocumento(c, archivo, string(metadatosJSON), ticket, s.apiKey)
+    // 3. Delegar la operación de subida al almacenamiento
+    respuesta, err := s.almacenamiento.SubirDocumento(c, fileBytes, string(metadatosJSON), ticket, s.apiKey)
     if err != nil {
         s.log.Error("Error en el servicio", map[string]interface{}{"error": err.Error()})
         return nil, fmt.Errorf("error interno: %v", err)
