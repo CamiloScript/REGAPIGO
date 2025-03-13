@@ -9,6 +9,7 @@ import (
 	"github.com/CamiloScript/REGAPIGO/domain/documentos"
 	"github.com/gin-gonic/gin"
     "github.com/CamiloScript/REGAPIGO/infraestructure/persistence/db/mongo"
+    "github.com/CamiloScript/REGAPIGO/shared/utils"
 )
 
 // LoteDocumentos representa la estructura para recibir múltiples documentos en una sola solicitud.
@@ -129,16 +130,21 @@ func (h *ManejadorDocumentos) ManejadorLoteDocumentos(c *gin.Context) {
             continue
         }
 
+        // Codificar el archivo a base64
+        base64File := utils.EncodeToBase64(fileContent)
+
         // Agregar a resultados
         resultados = append(resultados, gin.H{
             "nombre_archivo": archivo.Filename,
-            "respuesta": respuesta,
+            "respuesta": gin.H{
+                "fileName": archivo.Filename,
+                "base64":   base64File,
+            },
         })
-        
 
         if err := mongo.GuardarEnMongoDB(respuesta, h.log); err != nil {
-        h.log.Error("Error en persistencia MongoDB", map[string]interface{}{"error": err.Error()})
-}
+            h.log.Error("Error en persistencia MongoDB", map[string]interface{}{"error": err.Error()})
+        }
     }
 
     // 9. Construir respuesta para el cliente

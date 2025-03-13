@@ -2,15 +2,14 @@
 package handlers
 
 import (
-    "fmt"
     "net/http"
     "github.com/CamiloScript/REGAPIGO/application/documento"
     "github.com/CamiloScript/REGAPIGO/infraestructure/persistence/db/mongo"
     "github.com/CamiloScript/REGAPIGO/shared/logger"
     "github.com/CamiloScript/REGAPIGO/shared/config"
     "github.com/gin-gonic/gin"
-	"net/url"
     "github.com/CamiloScript/REGAPIGO/domain/auth"
+    "github.com/CamiloScript/REGAPIGO/shared/utils"
 )
 
 // ==================================================
@@ -127,7 +126,6 @@ func construirFiltro(solicitud SolicitudBusqueda) map[string]interface{} {
 // @Router /documentos/buscar-descargar [post]
 // busqueda_descarga_handler.go
 
-// BuscarYDescargarDocumento maneja el flujo completo de búsqueda y descarga.
 func (h *ManejadorBusquedaDescarga) BuscarYDescargarDocumento(c *gin.Context) {
     // 1. Autenticación interna
     ticket, err := h.internalAuth.AutenticarInternamente()
@@ -161,13 +159,13 @@ func (h *ManejadorBusquedaDescarga) BuscarYDescargarDocumento(c *gin.Context) {
         return
     }
 
-    // 5. Configurar respuesta
-    c.Header("Content-Description", "File Transfer")
-    c.Header("Content-Disposition", fmt.Sprintf("attachment; filename=%s", url.QueryEscape(nombreArchivo)))
-    c.Header("Content-Type", "application/pdf")
-    c.Header("Content-Length", fmt.Sprintf("%d", len(contenido)))
+    // 5. Codificar el archivo a base64
+    base64File := utils.EncodeToBase64(contenido)
 
-    // 6. Enviar archivo
-    c.Data(http.StatusOK, "application/pdf", contenido)
+    // 6. Configurar respuesta
+    c.JSON(http.StatusOK, gin.H{
+        "fileName": nombreArchivo,
+        "base64":   base64File,
+    })
     h.log.Info("Descarga exitosa", map[string]interface{}{"idFile": idFile, "nombreArchivo": nombreArchivo})
 }
