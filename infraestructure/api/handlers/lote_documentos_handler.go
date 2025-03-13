@@ -105,7 +105,12 @@ func (h *ManejadorDocumentos) ManejadorLoteDocumentos(c *gin.Context) {
         }
 
         // Llamar al servicio para subir el documento
-        respuesta, err := h.servicio.SubirDocumento(c, archivo, string(metadatosJSON), ticket)
+        var metadatosMap map[string]interface{}
+        if err := json.Unmarshal(metadatosJSON, &metadatosMap); err != nil {
+            errores = append(errores, fmt.Sprintf("Error al parsear metadatos para %s: %v", archivo.Filename, err))
+            continue
+        }
+        respuesta, err := h.servicio.SubirDocumento(c, archivo, metadatosMap, ticket)
         if err != nil {
             errores = append(errores, fmt.Sprintf("Error al subir archivo %s: %v", archivo.Filename, err))
             continue

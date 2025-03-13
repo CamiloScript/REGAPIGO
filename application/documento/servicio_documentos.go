@@ -3,10 +3,13 @@ package documento
 import (
     "github.com/gin-gonic/gin"
     "github.com/CamiloScript/REGAPIGO/domain/documentos"
+    "github.com/CamiloScript/REGAPIGO/shared/utils"
     "github.com/CamiloScript/REGAPIGO/shared/logger"
     "mime/multipart"
     "fmt"
     "errors"
+    "io"
+    "encoding/json"
 )
 
 // ErrDocumentoNoEncontrado es un error que se produce cuando un documento no se encuentra.
@@ -32,24 +35,45 @@ func NuevoServicioDocumentos(
     }
 }
 
-// SubirDocumento maneja la subida de un documento, delegando la operación al almacenamiento.
+// SubirDocumento maneja la subida de un documento, validando el tipo de archivo.
 func (s *ImplementacionServicioDocumentos) SubirDocumento(
-    c *gin.Context,                  // Contexto de Gin para manejar la solicitud HTTP
-    archivo *multipart.FileHeader,   // Archivo a subir
-    metadatos string,                // Metadatos asociados al archivo
-    ticket string,                   // Ticket obtenido del cliente para autenticación/autorización
-) (map[string]interface{}, error) {  // Retorna un mapa con la respuesta o un error
-
-    // Delegar la operación de subida al almacenamiento
-    respuesta, err := s.almacenamiento.SubirDocumento(c, archivo, metadatos, ticket, s.apiKey)
+    c *gin.Context,
+    archivo *multipart.FileHeader,
+    metadatos map[string]interface{},
+    ticket string,
+) (map[string]interface{}, error) {
+    // 1. Leer el contenido del archivo
+    file, err := archivo.Open()
     if err != nil {
-        // Registrar el error en el logger
+        return nil, fmt.Errorf("no se pudo abrir el archivo: %v", err)
+    }
+    defer file.Close()
+
+    // Leer los primeros bytes del archivo para detectar el tipo MIME
+    buffer := make([]byte, 512)
+    if _, err := file.Read(buffer); err != nil && err != io.EOF {
+        return nil, fmt.Errorf("no se pudo leer el archivo: %v", err)
+    }
+
+    // 2. Validar el tipo de archivo
+    mimeType := utils.DetectMimeTypeFromContent(buffer)
+    if mimeType != "image/jpeg" && mimeType != "image/png" && mimeType != "application/pdf" {
+        return nil, fmt.Errorf("tipo de archivo no soportado: %s", mimeType)
+    }
+
+    // 3. Convertir metadatos a JSON
+    metadatosJSON, err := json.Marshal(metadatos)
+    if err != nil {
+        return nil, fmt.Errorf("error al convertir metadatos a JSON: %v", err)
+    }
+
+    // 4. Delegar la operación de subida al almacenamiento
+    respuesta, err := s.almacenamiento.SubirDocumento(c, archivo, string(metadatosJSON), ticket, s.apiKey)
+    if err != nil {
         s.log.Error("Error en el servicio", map[string]interface{}{"error": err.Error()})
-        // Retornar un error formateado para el cliente
         return nil, fmt.Errorf("error interno: %v", err)
     }
 
-    // Retornar la respuesta del almacenamiento
     return respuesta, nil
 }
 

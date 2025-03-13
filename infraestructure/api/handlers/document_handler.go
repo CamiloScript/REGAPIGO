@@ -1,17 +1,16 @@
 package handlers
 
 import (
-    "encoding/json"
     "net/http"
-    "fmt"
-    "net/url"
+    "mime/multipart"
     "github.com/CamiloScript/REGAPIGO/application/documento"
-    "github.com/CamiloScript/REGAPIGO/domain/documentos"
     "github.com/CamiloScript/REGAPIGO/shared/logger"
     "github.com/CamiloScript/REGAPIGO/shared/config"
     "github.com/gin-gonic/gin"
     "github.com/CamiloScript/REGAPIGO/infraestructure/persistence/db/mongo"
     "github.com/CamiloScript/REGAPIGO/domain/auth" // Importar el paquete auth
+    "github.com/CamiloScript/REGAPIGO/shared/utils"
+    "os"
 )
 
 // ManejadorDocumentos controla las operaciones con documentos.
@@ -37,7 +36,8 @@ func NuevoManejadorDocumentos(
     }
 }
 
-// ManejadorSubirDocumento procesa la subida de documentos.
+
+// ManejadorSubirDocumento maneja la subida de documentos en formato base64.
 func (h *ManejadorDocumentos) ManejadorSubirDocumento(c *gin.Context) {
     // 1. Autenticación interna
     ticket, err := h.internalAuth.AutenticarInternamente()
@@ -46,74 +46,73 @@ func (h *ManejadorDocumentos) ManejadorSubirDocumento(c *gin.Context) {
         return
     }
 
-    // 2. Extraer archivo del formulario
-    archivo, err := c.FormFile("documento")
+    // 2. Extraer archivo en base64 y metadatos del cuerpo de la solicitud
+    var solicitud struct {
+        Base64    string                 `json:"base64"`    // Archivo en formato base64
+        Metadatos map[string]interface{} `json:"metadatos"` // Metadatos en formato JSON
+    }
+    if err := c.ShouldBindJSON(&solicitud); err != nil {
+        h.log.Error("Solicitud inválida", map[string]interface{}{"error": err.Error()})
+        c.JSON(http.StatusBadRequest, gin.H{"error": "Formato de solicitud incorrecto"})
+        return
+    }
+
+    // 3. Decodificar el archivo base64 a bytes
+    fileBytes, err := utils.DecodeBase64(solicitud.Base64)
     if err != nil {
-        h.log.Error("Archivo no recibido", map[string]interface{}{"error": err.Error()})
-        c.JSON(http.StatusBadRequest, gin.H{"error": "Se requiere un archivo"})
+        h.log.Error("Error al decodificar base64", map[string]interface{}{"error": err.Error()})
+        c.JSON(http.StatusBadRequest, gin.H{"error": "Archivo base64 inválido"})
         return
     }
 
-    // 3. Extraer metadatos del formulario
-    metadatosStr := c.PostForm("propiedades")
-    if metadatosStr == "" {
-        h.log.Error("Metadatos faltantes", nil)
-        c.JSON(http.StatusBadRequest, gin.H{"error": "Metadatos requeridos"})
+    // 4. Crear un archivo temporal para enviar a Alfresco
+    tempFile, err := os.CreateTemp("", "documento-*.pdf")
+    if err != nil {
+        h.log.Error("Error al crear archivo temporal", map[string]interface{}{"error": err.Error()})
+        c.JSON(http.StatusInternalServerError, gin.H{"error": "Error al crear archivo temporal"})
+        return
+    }
+    defer os.Remove(tempFile.Name())
+
+    if _, err := tempFile.Write(fileBytes); err != nil {
+        h.log.Error("Error al escribir en archivo temporal", map[string]interface{}{"error": err.Error()})
+        c.JSON(http.StatusInternalServerError, gin.H{"error": "Error al escribir en archivo temporal"})
+        return
+    }
+    if err := tempFile.Close(); err != nil {
+        h.log.Error("Error al cerrar archivo temporal", map[string]interface{}{"error": err.Error()})
+        c.JSON(http.StatusInternalServerError, gin.H{"error": "Error al cerrar archivo temporal"})
         return
     }
 
-    // 4. Validar estructura de metadatos
-    var metadatos documentos.DocumentMetadata
-    if err := json.Unmarshal([]byte(metadatosStr), &metadatos); err != nil {
-        h.log.Error("Metadatos inválidos", map[string]interface{}{"error": err.Error()})
-        c.JSON(http.StatusBadRequest, gin.H{"error": "Formato de metadatos incorrecto"})
+    // 5. Abrir el archivo temporal para crear el FileHeader
+    tempFile, err = os.Open(tempFile.Name())
+    if err != nil {
+        h.log.Error("Error al abrir archivo temporal", map[string]interface{}{"error": err.Error()})
+        c.JSON(http.StatusInternalServerError, gin.H{"error": "Error al abrir archivo temporal"})
         return
     }
+    defer tempFile.Close()
 
-    if err := metadatos.Validar(); err != nil {
-        h.log.Error("Validación fallida", map[string]interface{}{"error": err.Error()})
-        c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
-        return
+    // Crear un FileHeader para el archivo temporal
+    fileHeader := &multipart.FileHeader{
+        Filename: tempFile.Name(),
+        Size:     int64(len(fileBytes)),
     }
 
-    // 4.1 Validar sub-categoría específica
-    subCategoriasPermitidas := map[string]struct{}{
-        "Riesgo":               {},
-        "Comercial":            {},
-        "Operaciones":         {},
-        "Legal":               {},
-        "Documentos de Cliente": {},
-    }
-    
-    // Acceder al campo SubCategorias directamente desde el struct
-    subCat := metadatos.SubCategorias
-    if subCat == "" {
-        h.log.Error("Campo 'tanner:sub-categorias' faltante", nil)
-        c.JSON(http.StatusBadRequest, gin.H{"error": "El campo 'tanner:sub-categorias' es obligatorio"})
-        return
-    }
-
-    if _, permitida := subCategoriasPermitidas[subCat]; !permitida {
-        h.log.Error("Sub-categoría no permitida", map[string]interface{}{"valor": subCat})
-        c.JSON(http.StatusBadRequest, gin.H{
-            "error": fmt.Sprintf("Valor '%s' no permitido. Valores válidos: Riesgo, Comercial, Operaciones, Legal, Documentos de Cliente", subCat),
-        })
-        return
-    }
-
-    // 5. Delegar al servicio de documentos
-    respuesta, err := h.servicio.SubirDocumento(c, archivo, metadatosStr, ticket)
+    // 6. Delegar al servicio de documentos
+    respuesta, err := h.servicio.SubirDocumento(c, fileHeader, solicitud.Metadatos, ticket)
     if err != nil {
         h.log.Error("Error interno", map[string]interface{}{"error": err.Error()})
         c.JSON(http.StatusInternalServerError, gin.H{"error": "Error al procesar el documento"})
         return
     }
 
-    // 6. Responder con éxito
+    // 7. Responder con éxito
     c.JSON(http.StatusOK, respuesta)
     h.log.Info("Documento subido", map[string]interface{}{"id": respuesta["entry"].(map[string]interface{})["id"]})
 
-    // 7. Persistir en MongoDB
+    // 8. Persistir en MongoDB
     if err := mongo.GuardarEnMongoDB(respuesta, h.log); err != nil {
         h.log.Error("Error en persistencia MongoDB", map[string]interface{}{"error": err.Error()})
     }
@@ -154,7 +153,7 @@ func (h *ManejadorDocumentos) ManejadorListarDocumentos(c *gin.Context) {
     h.log.Info("Documentos listados", map[string]interface{}{"total": len(documentos)})
 }
 
-// ManejadorDescargarDocumento procesa la descarga de documentos.
+// ManejadorDescargarDocumento maneja la descarga de documentos y los devuelve en formato base64.
 func (h *ManejadorDocumentos) ManejadorDescargarDocumento(c *gin.Context) {
     // 1. Autenticación interna
     ticket, err := h.internalAuth.AutenticarInternamente()
@@ -184,17 +183,13 @@ func (h *ManejadorDocumentos) ManejadorDescargarDocumento(c *gin.Context) {
         return
     }
 
-    // 4. Configurar headers mejorados para descarga de PDF
-    c.Header("Content-Description", "File Transfer")
-    c.Header("Content-Disposition", fmt.Sprintf("attachment; filename=%s", url.QueryEscape(nombreArchivo)))
-    c.Header("Content-Type", "application/pdf")
-    c.Header("Content-Transfer-Encoding", "binary")
-    c.Header("Expires", "0")
-    c.Header("Cache-Control", "must-revalidate")
-    c.Header("Pragma", "public")
-    c.Header("Content-Length", fmt.Sprintf("%d", len(contenido)))
+    // 4. Codificar el archivo a base64
+    base64File := utils.EncodeToBase64(contenido)
 
-    // 5. Enviar el contenido del archivo al cliente
-    c.Data(http.StatusOK, "application/pdf", contenido)
+    // 5. Configurar respuesta
+    c.JSON(http.StatusOK, gin.H{
+        "fileName": nombreArchivo,
+        "base64":   base64File,
+    })
     h.log.Info("Documento descargado", map[string]interface{}{"idFile": idFile, "nombreArchivo": nombreArchivo})
 }

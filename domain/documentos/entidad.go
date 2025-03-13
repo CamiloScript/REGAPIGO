@@ -39,6 +39,7 @@ type DocumentMetadata struct {
     CmVersionLabel       string   `json:"cm:versionLabel" bson:"_cm:versionLabel, omitempty"`                     // Etiqueta de versión del documento
     CmDescription        string   `json:"cm:description" bson:"_cm:description, omitempty"`                       // Descripción del documento
     Observaciones        string   `json:"tanner:observaciones" bson:"_tanner:observaciones,omitempty"`            // Observaciones adicionales
+    FileType             string   `json:"file_type" bson:"file_type,omitempty"`                                   // Campo para el tipo de archivo
 }
 
 // Validar verifica que los campos obligatorios del DocumentMetadata estén presentes y que el RUT sea válido.
